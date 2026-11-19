@@ -36,11 +36,14 @@ export const useDebuggerStore = defineStore('debugger', () => {
   const envStore = useEnvironmentStore();
 
   /** 插值后的 URL 预览 */
-  const interpolatedUrl = computed(() => {
-    const result = interpolate(url.value, envStore.mergedVariables);
-    unresolvedVars.value = result.unresolved;
-    return result.value;
-  });
+  const interpolatedUrl = computed(
+    () => interpolate(url.value, envStore.mergedVariables).value,
+  );
+
+  /** URL 里尚未定义的变量，用于输入时即时提示 */
+  const urlUnresolved = computed(
+    () => interpolate(url.value, envStore.mergedVariables).unresolved,
+  );
 
   function rowsToRecord(rows: KeyValueRow[]): Record<string, string> {
     const out: Record<string, string> = {};
@@ -124,18 +127,40 @@ export const useDebuggerStore = defineStore('debugger', () => {
     sending.value = true;
     error.value = null;
     try {
+      const variables = envStore.mergedVariables;
+      const unresolved = new Set<string>();
+      // 插值必须发生在发送前：此前只在界面做了预览，实际发出的是带 {{}} 的原始模板，
+      // 表现为「URL 格式无效」或请求头里收到字面量 {{apikey}}
+      const apply = (input: string | undefined): string | undefined => {
+        if (input === undefined) return undefined;
+        const result = interpolate(input, variables);
+        result.unresolved.forEach((name) => unresolved.add(name));
+        return result.value;
+      };
+      const applyRecord = (record: Record<string, string>): Record<string, string> =>
+        Object.fromEntries(Object.entries(record).map(([k, v]) => [k, apply(v) ?? '']));
+
       const dto = {
         method: method.value,
-        url: url.value,
+        url: apply(url.value) ?? '',
+        // 模板保持原样写入历史，才能看出这条请求原本引用的是哪个模板
         urlTemplate: urlTemplate.value,
-        query: rowsToRecord(query.value),
-        headers: rowsToRecord(headers.value),
-        body: bodyType.value === 'none' ? undefined : body.value,
+        query: applyRecord(rowsToRecord(query.value)),
+        headers: applyRecord(rowsToRecord(headers.value)),
+        body: bodyType.value === 'none' ? undefined : apply(body.value),
         bodyType: bodyType.value,
       };
+
+      unresolvedVars.value = Array.from(unresolved);
+      // 未定义变量不发送：发出去只会得到一个莫名其妙的结果，不如就地报清楚
+      if (unresolved.size > 0) {
+        response.value = null;
+        error.value = `变量未定义：${[...unresolved].join('、')}。请到管理后台「环境变量」或「全局变量」中补上。`;
+        return;
+      }
+
       const result = await sendRequest(dto);
       response.value = result;
-      unresolvedVars.value = result.unresolved ?? unresolvedVars.value;
     } catch (err: any) {
       error.value = err?.response?.data?.message ?? err?.message ?? '发送失败';
       response.value = null;
@@ -162,6 +187,7 @@ export const useDebuggerStore = defineStore('debugger', () => {
     error,
     unresolvedVars,
     interpolatedUrl,
+    urlUnresolved,
     panelOpen,
     currentOperationId,
     loadFromOperation,

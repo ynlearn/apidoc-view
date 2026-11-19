@@ -40,6 +40,7 @@
 
       <el-tab-pane label="上传文件" name="file">
         <el-upload
+          ref="uploadRef"
           drag
           :auto-upload="false"
           :limit="1"
@@ -57,7 +58,7 @@
       </el-tab-pane>
     </el-tabs>
 
-    <div v-if="showGroupPicker" class="import-group">
+    <div class="import-group">
       <el-form label-position="top">
         <el-form-item label="归属分组（可选）">
           <el-select
@@ -66,14 +67,20 @@
             allow-create
             clearable
             default-first-option
-            placeholder="留空则按 OpenAPI tags 自动分组"
+            :disabled="groupDisabled"
+            :placeholder="groupDisabled ? 'Markdown 文档无需分组' : '留空则按 OpenAPI tags 自动分组'"
             class="import-group-select"
           >
             <el-option v-for="name in groupNames" :key="name" :label="name" :value="name" />
           </el-select>
         </el-form-item>
         <p class="import-tip">
-          指定后本次导入的所有接口都会挂到该分组；分组是本系统的展示归类，相当于 OpenAPI 的 tags[0]。
+          <template v-if="groupDisabled">
+            Markdown 文档没有接口概念，不参与分组。
+          </template>
+          <template v-else>
+            指定后本次导入的所有接口都会挂到该分组；分组是本系统的展示归类，相当于 OpenAPI 的 tags[0]。
+          </template>
         </p>
       </el-form>
     </div>
@@ -89,7 +96,7 @@
 import { ref, computed, watch, defineAsyncComponent } from 'vue';
 import { UploadFilled } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import type { UploadFile } from 'element-plus';
+import type { UploadFile, UploadInstance } from 'element-plus';
 import type { DocumentFormat } from '@openapi-view/shared';
 // CodeMirror 体积大：与其他使用处保持一致的动态加载策略
 const CodeEditor = defineAsyncComponent(() => import('./CodeEditor.vue'));
@@ -109,22 +116,38 @@ const fileFormat = ref<DocumentFormat>('json');
 const loading = ref(false);
 const groupNames = ref<string[]>([]);
 const targetGroup = ref('');
+const uploadRef = ref<UploadInstance>();
 
 const visible = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v),
 });
 
-/** Markdown 没有接口概念，不显示归组选项 */
-const showGroupPicker = computed(() => {
-  if (activeTab.value === 'paste') return pasteFormat.value !== 'markdown';
-  if (activeTab.value === 'file') return fileFormat.value !== 'markdown';
-  return true;
+/**
+ * Markdown 没有接口概念，分组对它无意义。
+ * 但区块不能整块消失 —— 消失会让人以为「这个 tab 不支持分组」，所以改成可见但禁用。
+ */
+const groupDisabled = computed(() => {
+  if (activeTab.value === 'paste') return pasteFormat.value === 'markdown';
+  if (activeTab.value === 'file') return fileFormat.value === 'markdown';
+  return false;
+});
+
+watch(groupDisabled, (disabled) => {
+  if (disabled) targetGroup.value = '';
 });
 
 watch(visible, async (open) => {
   if (!open) return;
+  // 每次打开都彻底重置：上次的文件内容/格式若残留，「点导入却导进旧文件」很难查
+  activeTab.value = 'url';
+  url.value = '';
+  pasteContent.value = '';
+  pasteFormat.value = 'json';
+  fileContent.value = '';
+  fileFormat.value = 'json';
   targetGroup.value = '';
+  uploadRef.value?.clearFiles();
   try {
     groupNames.value = await listGroupNames();
   } catch {

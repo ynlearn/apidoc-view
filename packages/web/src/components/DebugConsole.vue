@@ -28,10 +28,10 @@
       </el-button>
     </div>
 
-    <div v-if="debuggerStore.unresolvedVars.length" class="var-warning">
+    <div v-if="missingVars.length" class="var-warning">
       <el-alert
         type="warning" :closable="false" show-icon
-        :title="`未解析变量：${debuggerStore.unresolvedVars.join(', ')}（请到管理后台配置环境变量）`"
+        :title="`变量未定义：${missingVars.join('、')}（请到管理后台「环境变量」或「全局变量」配置）`"
       />
     </div>
     <div v-if="debuggerStore.url !== debuggerStore.interpolatedUrl" class="url-preview">
@@ -90,6 +90,11 @@ const docsStore = useDocumentsStore();
 const operation = computed(() => docsStore.selectedOperation);
 const reqTab = ref('params');
 const methods: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'];
+
+/** 合并「输入时检测到的」与「发送时收集到的」未定义变量，去重后统一提示 */
+const missingVars = computed(() =>
+  Array.from(new Set([...debuggerStore.urlUnresolved, ...debuggerStore.unresolvedVars])),
+);
 
 async function send() {
   if (!debuggerStore.url.trim()) { ElMessage.warning('请输入请求 URL'); return; }
