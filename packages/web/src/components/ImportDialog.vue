@@ -53,11 +53,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, defineAsyncComponent } from 'vue';
 import { UploadFilled } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import type { UploadFile } from 'element-plus';
-import CodeEditor from './CodeEditor.vue';
+// CodeMirror 体积大：与其他使用处保持一致的动态加载策略
+const CodeEditor = defineAsyncComponent(() => import('./CodeEditor.vue'));
 import { useDocumentsStore } from '../stores/documents';
 
 const props = defineProps<{ modelValue: boolean }>();

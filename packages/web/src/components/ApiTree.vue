@@ -68,7 +68,7 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue';
 import { Search, Files, ArrowDown, FolderOpened } from '@element-plus/icons-vue';
-import type { NormalizedDocument, OperationView } from '@bluebull/shared';
+import type { NormalizedDocument, OperationView } from '@openapi-view/shared';
 import { useDocumentsStore } from '../stores/documents';
 import type { ElTree } from 'element-plus';
 

@@ -75,7 +75,7 @@
 import { ref, computed, defineAsyncComponent } from 'vue';
 import { Promotion } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import type { HttpMethod } from '@bluebull/shared';
+import type { HttpMethod } from '@openapi-view/shared';
 import { useDebuggerStore } from '../stores/debugger';
 import { useDocumentsStore } from '../stores/documents';
 import KeyValueEditor from './KeyValueEditor.vue';

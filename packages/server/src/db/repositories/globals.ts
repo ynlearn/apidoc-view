@@ -1,4 +1,4 @@
-import type { GlobalVariable, MergedVariables } from '@bluebull/shared';
+import type { GlobalVariable, MergedVariables } from '@openapi-view/shared';
 import { db } from '../index.js';
 import { getActiveEnvironment } from './environments.js';
 

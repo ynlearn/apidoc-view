@@ -243,7 +243,7 @@ import {
   Document, Monitor, FolderOpened, Clock,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import type { Environment, HistoryEntry } from '@bluebull/shared';
+import type { Environment, HistoryEntry } from '@openapi-view/shared';
 import AppHeader from '../components/AppHeader.vue';
 import ImportDialog from '../components/ImportDialog.vue';
 import { useDocumentsStore } from '../stores/documents';

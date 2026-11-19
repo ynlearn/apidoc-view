@@ -1,5 +1,5 @@
 {
-  "name": "@bluebull/web",
+  "name": "@openapi-view/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@bluebull/shared": "workspace:*",
+    "@openapi-view/shared": "workspace:*",
     "@codemirror/commands": "^6.8.1",
     "@codemirror/lang-json": "^6.0.1",
     "@codemirror/state": "^6.5.2",

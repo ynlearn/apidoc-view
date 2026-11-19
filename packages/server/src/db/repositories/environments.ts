@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { Environment } from '@bluebull/shared';
+import type { Environment } from '@openapi-view/shared';
 import { db } from '../index.js';
 
 type Row = Record<string, any>;

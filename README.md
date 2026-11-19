@@ -1,4 +1,4 @@
-# API 调试工作台（bluebull-cu）
+# API接口文档与调试工作台（apidoc-view）
 
 一个类似 Apifox 的轻量内部工具，聚焦两件事：**OpenAPI 3.0 接口文档管理** 与 **在线请求调试**。
 
@@ -28,7 +28,7 @@
 
 ```bash
 pnpm install
-pnpm --filter @bluebull/shared build   # 首次需构建共享类型
+pnpm --filter @openapi-view/shared build   # 首次需构建共享类型
 pnpm dev                                # 同时启动前端(5173)与后端(3000)
 ```
 
@@ -43,14 +43,14 @@ NODE_NO_WARNINGS=1 node packages/server/dist/index.js   # 单进程同时托管 
 
 访问 http://localhost:3000 。
 
-## 调试内网服务（如 bluebull-openapi）
+## 调试内网服务
 
 SSRF 防护默认拦截所有内网地址。若要调试内网服务，通过环境变量配置**内网例外白名单**（精确 host，不支持网段通配）：
 
 ```bash
-SSRF_INTERNAL_ALLOWLIST=bluebull-openapi.internal pnpm dev
+SSRF_INTERNAL_ALLOWLIST=my-api.internal pnpm dev
 # 多个用逗号分隔
-SSRF_INTERNAL_ALLOWLIST=bluebull-openapi.internal,10.0.0.5 pnpm dev
+SSRF_INTERNAL_ALLOWLIST=my-api.internal,10.0.0.5 pnpm dev
 ```
 
 白名单仅豁免内网网段拦截；协议白名单（仅 http/https）、端口黑名单、云元数据地址校验仍然生效。也可不配白名单，直接把目标服务通过 nginx 反向代理到一个公网可解析的地址再调试。

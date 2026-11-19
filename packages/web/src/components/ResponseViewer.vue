@@ -51,7 +51,7 @@ import { computed, ref, watch } from 'vue';
 import VueJsonPretty from 'vue-json-pretty';
 import 'vue-json-pretty/lib/styles.css';
 import { Timer, Coin, WarningFilled } from '@element-plus/icons-vue';
-import type { ProxyResponseDto } from '@bluebull/shared';
+import type { ProxyResponseDto } from '@openapi-view/shared';
 
 const props = defineProps<{ response: ProxyResponseDto | null; error?: string | null }>();
 

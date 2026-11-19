@@ -1,5 +1,5 @@
 import { Agent, buildConnector, request, type Dispatcher } from 'undici';
-import type { BodyType, ProxyRequestDto, ProxyResponseDto } from '@bluebull/shared';
+import type { BodyType, ProxyRequestDto, ProxyResponseDto } from '@openapi-view/shared';
 import { config } from '../config.js';
 import { AppError } from '../middleware/AppError.js';
 import { assertSafeTarget, resolveLocation, SsrfError, type SafeTarget } from './ssrf.js';

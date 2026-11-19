@@ -2,8 +2,8 @@
   <header class="af-header">
     <div class="af-header-left">
       <div class="af-logo" @click="router.push('/')">
-        <span class="af-logo-mark">C</span>
-        <span class="af-logo-text">CU速运</span>
+        <span class="af-logo-mark">A</span>
+        <span class="af-logo-text">API接口文档</span>
       </div>
       <span class="af-header-divider"></span>
       <span class="af-header-sub">API 文档与调试</span>

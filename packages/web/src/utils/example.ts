@@ -1,4 +1,4 @@
-import type { SchemaView } from '@bluebull/shared';
+import type { SchemaView } from '@openapi-view/shared';
 
 /** 前端示例生成（与后端 openapiService.generateExample 保持一致） */
 export function generateExample(schema: SchemaView | undefined): unknown {

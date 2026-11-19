@@ -1,4 +1,4 @@
-import type { MergedVariables } from '@bluebull/shared';
+import type { MergedVariables } from '@openapi-view/shared';
 
 const VAR_PATTERN = /\{\{\s*([A-Za-z0-9_.\-]+)\s*\}\}/g;
 const MAX_ROUNDS = 3;

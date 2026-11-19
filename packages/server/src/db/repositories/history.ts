@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { HistoryEntry } from '@bluebull/shared';
+import type { HistoryEntry } from '@openapi-view/shared';
 import { config } from '../../config.js';
 import { db } from '../index.js';
 

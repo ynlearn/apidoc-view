@@ -1,4 +1,4 @@
-import type { Environment, GlobalVariable } from '@bluebull/shared';
+import type { Environment, GlobalVariable } from '@openapi-view/shared';
 import { http } from './http';
 
 export function listEnvironments() {

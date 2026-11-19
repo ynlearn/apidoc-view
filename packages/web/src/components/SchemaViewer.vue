@@ -34,7 +34,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import type { SchemaView } from '@bluebull/shared';
+import type { SchemaView } from '@openapi-view/shared';
 import SchemaViewer from './SchemaViewer.vue';
 
 const props = defineProps<{ schema?: SchemaView }>();

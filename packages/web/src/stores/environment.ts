@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { Environment, GlobalVariable, MergedVariables } from '@bluebull/shared';
+import type { Environment, GlobalVariable, MergedVariables } from '@openapi-view/shared';
 import * as api from '../api/environments';
 
 export const useEnvironmentStore = defineStore('environment', () => {

@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { DocumentSummary, DocumentDetail, NormalizedDocument, OperationView } from '@bluebull/shared';
+import type { DocumentSummary, DocumentDetail, NormalizedDocument, OperationView } from '@openapi-view/shared';
 import * as api from '../api/documents';
 
 export const useDocumentsStore = defineStore('documents', () => {

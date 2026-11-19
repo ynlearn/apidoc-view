@@ -103,7 +103,7 @@
 import { computed } from 'vue';
 import { ArrowRight, Promotion } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
-import type { OperationView, ParameterView, SchemaView } from '@bluebull/shared';
+import type { OperationView, ParameterView, SchemaView } from '@openapi-view/shared';
 import SchemaViewer from './SchemaViewer.vue';
 import { generateExample } from '../utils/example';
 

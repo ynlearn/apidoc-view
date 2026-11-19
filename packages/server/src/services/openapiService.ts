@@ -7,7 +7,7 @@ import type {
   ParameterView,
   ResponseView,
   SchemaView,
-} from '@bluebull/shared';
+} from '@openapi-view/shared';
 import { AppError } from '../middleware/AppError.js';
 
 type AnyObj = Record<string, any>;

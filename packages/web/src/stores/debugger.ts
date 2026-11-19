@@ -5,7 +5,7 @@ import type {
   HttpMethod,
   OperationView,
   ProxyResponseDto,
-} from '@bluebull/shared';
+} from '@openapi-view/shared';
 import { sendRequest } from '../api/proxy';
 import { interpolate } from '../utils/interpolate';
 import { useEnvironmentStore } from './environment';

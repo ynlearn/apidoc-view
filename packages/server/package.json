@@ -1,5 +1,5 @@
 {
-  "name": "@bluebull/server",
+  "name": "@openapi-view/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@apidevtools/swagger-parser": "^10.1.1",
-    "@bluebull/shared": "workspace:*",
+    "@openapi-view/shared": "workspace:*",
     "compression": "^1.8.2",
     "cors": "^2.8.5",
     "express": "^4.21.2",

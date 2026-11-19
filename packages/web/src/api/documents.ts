@@ -1,4 +1,4 @@
-import type { DocumentDetail, DocumentSummary } from '@bluebull/shared';
+import type { DocumentDetail, DocumentSummary } from '@openapi-view/shared';
 import { http } from './http';
 
 export function listDocuments() {

@@ -1,4 +1,4 @@
-import type { ProxyRequestDto, ProxyResponseDto, HistoryEntry } from '@bluebull/shared';
+import type { ProxyRequestDto, ProxyResponseDto, HistoryEntry } from '@openapi-view/shared';
 import { http } from './http';
 
 export function sendRequest(dto: ProxyRequestDto) {

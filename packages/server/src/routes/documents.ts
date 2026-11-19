@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import YAML from 'yaml';
-import type { CreateDocumentDto } from '@bluebull/shared';
+import type { CreateDocumentDto } from '@openapi-view/shared';
 import { AppError } from '../middleware/AppError.js';
 import { validateBody } from '../middleware/validate.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';

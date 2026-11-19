@@ -20,7 +20,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { List } from '@element-plus/icons-vue';
-import type { OperationView } from '@bluebull/shared';
+import type { OperationView } from '@openapi-view/shared';
 
 interface TocItem { id: string; label: string; level: 1 | 2 }
 const props = defineProps<{ operation: OperationView | null }>();
