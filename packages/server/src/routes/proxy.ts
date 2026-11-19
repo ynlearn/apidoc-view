@@ -32,7 +32,7 @@ proxyRouter.post('/', requireView, validateBody(proxySchema), asyncHandler(async
 
   // 后端兜底插值：前端通常已完成，但保留此能力以便直接调用 API
   if (input.interpolate) {
-    const merged = getMergedVariables();
+    const merged = await getMergedVariables();
     const result = interpolateRequest(input as any, merged);
     Object.assign(input, result.dto);
     unresolved.push(...result.unresolved);
@@ -41,7 +41,7 @@ proxyRouter.post('/', requireView, validateBody(proxySchema), asyncHandler(async
   try {
     const result = await proxyRequest(input as any);
     // 记录成功历史
-    insertHistory({
+    await insertHistory({
       method: input.method,
       urlTemplate: input.urlTemplate,
       urlActual: result.finalUrl,
@@ -55,7 +55,7 @@ proxyRouter.post('/', requireView, validateBody(proxySchema), asyncHandler(async
     res.json({ ...result, ...(unresolved.length ? { unresolved } : {}) });
   } catch (err: any) {
     // 记录失败历史
-    insertHistory({
+    await insertHistory({
       method: input.method,
       urlTemplate: input.urlTemplate,
       urlActual: input.url,
@@ -72,24 +72,24 @@ const historyQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
-historyRouter.get('/', requireAdmin, validateQuery(historyQuerySchema), (_req, res) => {
+historyRouter.get('/', requireAdmin, validateQuery(historyQuerySchema), asyncHandler(async (_req, res) => {
   const { limit, offset } = res.locals.query as { limit: number; offset: number };
-  res.json(listHistory(limit, offset));
-});
+  res.json(await listHistory(limit, offset));
+}));
 
-historyRouter.get('/:id', requireAdmin, (req, res) => {
-  const entry = getHistory(req.params.id);
+historyRouter.get('/:id', requireAdmin, asyncHandler(async (req, res) => {
+  const entry = await getHistory(req.params.id);
   if (!entry) throw new AppError(404, 'NOT_FOUND', '历史记录不存在');
   res.json(entry);
-});
+}));
 
-historyRouter.delete('/:id', requireAdmin, (req, res) => {
-  const ok = deleteHistory(req.params.id);
+historyRouter.delete('/:id', requireAdmin, asyncHandler(async (req, res) => {
+  const ok = await deleteHistory(req.params.id);
   if (!ok) throw new AppError(404, 'NOT_FOUND', '历史记录不存在');
   res.status(204).end();
-});
+}));
 
-historyRouter.delete('/', requireAdmin, (_req, res) => {
-  clearHistory();
+historyRouter.delete('/', requireAdmin, asyncHandler(async (_req, res) => {
+  await clearHistory();
   res.status(204).end();
-});
+}));

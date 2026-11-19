@@ -4,6 +4,7 @@ import compression from 'compression';
 import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.js';
+import { db } from './db/index.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { authRouter } from './routes/auth.js';
 import { documentsRouter } from './routes/documents.js';
@@ -21,7 +22,7 @@ export function createApp() {
   app.use(express.json({ limit: '5mb' }));
 
   app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok' });
+    res.json({ status: 'ok', db: db.dialect });
   });
 
   // 鉴权路由自身不设门槛（登录、状态查询）

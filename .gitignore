@@ -17,7 +17,8 @@ data/
 workbuddy/
 .long-task-control/
 
-# 测试产物（真实接口文档副本仅本地保留）
+# 测试产物忽略（真实接口文档副本仅本地保留）；测试代码本身入库，
+# 否则 package.json 的 test:smoke / test:db 在别人 clone 后会指向不存在的文件
 tests/fixtures-real-openapi.json
 tests/screenshots/
 tests/results*.json

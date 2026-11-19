@@ -63,14 +63,14 @@ function defaultTitle(documentTitle: string, targetType: ShareTargetType, draft?
 
 // ---------- 管理端（需管理员登录） ----------
 
-sharesRouter.get('/', requireAdmin, (req, res) => {
+sharesRouter.get('/', requireAdmin, asyncHandler(async (req, res) => {
   const documentId = typeof req.query.documentId === 'string' ? req.query.documentId : undefined;
-  res.json(listShares(documentId));
-});
+  res.json(await listShares(documentId));
+}));
 
-sharesRouter.post('/', requireAdmin, validateBody(createShareSchema), (req, res) => {
+sharesRouter.post('/', requireAdmin, validateBody(createShareSchema), asyncHandler(async (req, res) => {
   const dto = req.body as z.infer<typeof createShareSchema>;
-  const doc = getDocument(dto.documentId);
+  const doc = await getDocument(dto.documentId);
   if (!doc) throw new AppError(404, 'NOT_FOUND', '文档不存在');
 
   let title = dto.title?.trim();
@@ -83,7 +83,7 @@ sharesRouter.post('/', requireAdmin, validateBody(createShareSchema), (req, res)
     title = title || defaultTitle(doc.title, 'document');
   }
 
-  const id = insertShare({
+  const id = await insertShare({
     token: generateShareToken(),
     targetType: dto.targetType,
     documentId: dto.documentId,
@@ -92,7 +92,7 @@ sharesRouter.post('/', requireAdmin, validateBody(createShareSchema), (req, res)
     passwordHash: dto.password?.trim() ? hashSharePassword(dto.password.trim()) : undefined,
     expiresAt: expiresAtFromDays(dto.expiresInDays) ?? undefined,
   });
-  const created = getShareById(id)!;
+  const created = (await getShareById(id))!;
   res.status(201).json({
     id,
     token: created.token,
@@ -106,11 +106,11 @@ sharesRouter.post('/', requireAdmin, validateBody(createShareSchema), (req, res)
     enabled: created.enabled,
     createdAt: created.createdAt,
   });
-});
+}));
 
-sharesRouter.patch('/:id', requireAdmin, validateBody(updateShareSchema), (req, res) => {
+sharesRouter.patch('/:id', requireAdmin, validateBody(updateShareSchema), asyncHandler(async (req, res) => {
   const dto = req.body as z.infer<typeof updateShareSchema>;
-  const existing = getShareById(req.params.id);
+  const existing = await getShareById(req.params.id);
   if (!existing) throw new AppError(404, 'NOT_FOUND', '分享不存在');
 
   const patch: Parameters<typeof updateShare>[1] = {};
@@ -121,19 +121,19 @@ sharesRouter.patch('/:id', requireAdmin, validateBody(updateShareSchema), (req, 
   if (dto.enabled !== undefined) patch.enabled = dto.enabled;
   if (dto.expiresInDays !== undefined) patch.expiresAt = expiresAtFromDays(dto.expiresInDays);
 
-  updateShare(existing.id, patch);
-  res.json(listShares(existing.documentId).find((s) => s.id === existing.id));
-});
+  await updateShare(existing.id, patch);
+  res.json((await listShares(existing.documentId)).find((s) => s.id === existing.id));
+}));
 
-sharesRouter.delete('/:id', requireAdmin, (req, res) => {
-  if (!deleteShare(req.params.id)) throw new AppError(404, 'NOT_FOUND', '分享不存在');
+sharesRouter.delete('/:id', requireAdmin, asyncHandler(async (req, res) => {
+  if (!(await deleteShare(req.params.id))) throw new AppError(404, 'NOT_FOUND', '分享不存在');
   res.status(204).end();
-});
+}));
 
 // ---------- 公开访问（无需登录，凭 token） ----------
 
-function loadUsableShare(token: string): ShareRecord {
-  const record = getShareByToken(token);
+async function loadUsableShare(token: string): Promise<ShareRecord> {
+  const record = await getShareByToken(token);
   if (!record) throw new AppError(404, 'SHARE_NOT_FOUND', '分享链接不存在或已被删除');
   const availability = evaluateShare(record);
   if (availability === 'disabled') throw new AppError(410, 'SHARE_DISABLED', '分享已停用');
@@ -141,8 +141,8 @@ function loadUsableShare(token: string): ShareRecord {
   return record;
 }
 
-sharesRouter.get('/:token/meta', (req, res) => {
-  const record = getShareByToken(req.params.token);
+sharesRouter.get('/:token/meta', asyncHandler(async (req, res) => {
+  const record = await getShareByToken(req.params.token);
   if (!record) {
     const body: ShareMeta = {
       title: '链接无效',
@@ -159,16 +159,16 @@ sharesRouter.get('/:token/meta', (req, res) => {
   const body: ShareMeta = {
     title: record.title,
     targetType: record.targetType,
-    documentTitle: getDocument(record.documentId)?.title ?? '',
+    documentTitle: (await getDocument(record.documentId))?.title ?? '',
     needPassword: Boolean(record.passwordHash),
     unavailable: availability !== 'ok',
     unavailableReason: availability === 'ok' ? undefined : availability,
   };
   res.json(body);
-});
+}));
 
-sharesRouter.post('/:token/unlock', validateBody(z.object({ password: z.string().optional() })), (req, res) => {
-  const record = loadUsableShare(req.params.token);
+sharesRouter.post('/:token/unlock', validateBody(z.object({ password: z.string().optional() })), asyncHandler(async (req, res) => {
+  const record = await loadUsableShare(req.params.token);
   const password = typeof req.body?.password === 'string' ? req.body.password : '';
 
   if (record.passwordHash) {
@@ -184,7 +184,7 @@ sharesRouter.post('/:token/unlock', validateBody(z.object({ password: z.string()
   }
 
   res.json(issueShareAccessToken(record.id));
-});
+}));
 
 function readShareToken(req: Request): string | null {
   const header = req.get('authorization');
@@ -196,7 +196,7 @@ function readShareToken(req: Request): string | null {
 }
 
 sharesRouter.get('/:token/content', asyncHandler(async (req, res) => {
-  const record = loadUsableShare(req.params.token);
+  const record = await loadUsableShare(req.params.token);
 
   if (record.passwordHash) {
     const shareId = verifyShareAccessToken(readShareToken(req));
@@ -205,7 +205,7 @@ sharesRouter.get('/:token/content', asyncHandler(async (req, res) => {
     }
   }
 
-  const doc = getDocument(record.documentId);
+  const doc = await getDocument(record.documentId);
   if (!doc) throw new AppError(404, 'SHARE_NOT_FOUND', '分享的文档已被删除');
 
   let normalized = doc.normalized;

@@ -32,11 +32,49 @@ function parsePorts(value: string | undefined): number[] {
     .filter((n) => Number.isInteger(n) && n > 0 && n <= 65535);
 }
 
+/**
+ * 数据库方言：sqlite（默认，零依赖）| mysql | postgres。
+ * 别名归一化；非法值直接抛——配置错误要在启动那一刻暴露，不能拖到第一条查询。
+ */
+function parseDbType(value: string | undefined): 'sqlite' | 'mysql' | 'postgres' {
+  const raw = (value ?? 'sqlite').trim().toLowerCase();
+  if (!raw || raw === 'sqlite' || raw === 'sqlite3') return 'sqlite';
+  if (raw === 'mysql' || raw === 'mariadb') return 'mysql';
+  if (raw === 'postgres' || raw === 'postgresql' || raw === 'pg') return 'postgres';
+  throw new Error(
+    `[config] 不支持的 DB_TYPE: "${raw}"（可选 sqlite / mysql / postgres，别名 pg / postgresql / mariadb）`,
+  );
+}
+
+function parseDbPort(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0 || n > 65535) {
+    throw new Error(`[config] 非法的 DB_PORT: "${value}"`);
+  }
+  return n;
+}
+
+const dbType = parseDbType(process.env.DB_TYPE);
+const dbPort = parseDbPort(process.env.DB_PORT, dbType === 'mysql' ? 3306 : 5432);
+
 export const config = {
   port: Number(process.env.PORT ?? 3000),
   host: process.env.HOST ?? '0.0.0.0',
   dbPath: process.env.DB_PATH ?? path.join(projectRoot, 'data', 'app.db'),
   projectRoot,
+
+  // ---------- 数据库后端（mysql/pg 共用一组连接参数；DB_URL 优先） ----------
+  dbType,
+  dbPort,
+  dbHost: process.env.DB_HOST ?? '127.0.0.1',
+  dbUser: process.env.DB_USER ?? 'apidoc',
+  dbPassword: process.env.DB_PASSWORD ?? '',
+  dbName: process.env.DB_NAME ?? 'apidoc_view',
+  /** 连接串（mysql://... 或 postgres://...），给出时优先于零散的 DB_HOST/DB_PORT/... */
+  dbUrl: process.env.DB_URL,
+  /** 连接池大小（sqlite 模式不使用） */
+  dbPoolSize: Math.max(1, Number(process.env.DB_POOL_SIZE ?? 10)),
 
   // 代理与 SSRF
   maxResponseBytes: Number(process.env.MAX_RESPONSE_BYTES ?? 10 * 1024 * 1024),

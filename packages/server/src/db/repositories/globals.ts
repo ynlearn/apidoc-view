@@ -4,10 +4,12 @@ import { getActiveEnvironment } from './environments.js';
 
 type Row = Record<string, any>;
 
-export function listGlobals(): GlobalVariable[] {
-  return (
-    db.prepare('SELECT * FROM globals ORDER BY key ASC').all() as Row[]
-  ).map((row) => ({
+// key 是 MySQL 保留字，列名引用统一走方言引号（sqlite/pg 双引号、MySQL 反引号）
+const KEY = db.ident('key');
+
+export async function listGlobals(): Promise<GlobalVariable[]> {
+  const rows = (await db.prepare(`SELECT * FROM globals ORDER BY ${KEY} ASC`).all()) as Row[];
+  return rows.map((row) => ({
     key: row.key,
     value: row.value,
     description: row.description ?? undefined,
@@ -15,25 +17,26 @@ export function listGlobals(): GlobalVariable[] {
   }));
 }
 
-export function replaceGlobals(variables: Array<{ key: string; value: string; description?: string }>): void {
-  const run = db.transaction(() => {
-    db.prepare('DELETE FROM globals').run();
-    const stmt = db.prepare(
-      'INSERT INTO globals (key, value, description, updated_at) VALUES (?, ?, ?, ?)',
+export async function replaceGlobals(
+  variables: Array<{ key: string; value: string; description?: string }>,
+): Promise<void> {
+  await db.transaction(async (tx) => {
+    await tx.prepare('DELETE FROM globals').run();
+    const stmt = tx.prepare(
+      `INSERT INTO globals (${KEY}, value, description, updated_at) VALUES (?, ?, ?, ?)`,
     );
     const now = Date.now();
     for (const v of variables) {
-      stmt.run(v.key, v.value, v.description ?? null, now);
+      await stmt.run(v.key, v.value, v.description ?? null, now);
     }
   });
-  run();
 }
 
 /** 合并变量：全局优先被环境覆盖 */
-export function getMergedVariables(): MergedVariables {
+export async function getMergedVariables(): Promise<MergedVariables> {
   const merged: MergedVariables = {};
-  for (const g of listGlobals()) merged[g.key] = g.value;
-  const active = getActiveEnvironment();
+  for (const g of await listGlobals()) merged[g.key] = g.value;
+  const active = await getActiveEnvironment();
   if (active) Object.assign(merged, active.variables);
   return merged;
 }

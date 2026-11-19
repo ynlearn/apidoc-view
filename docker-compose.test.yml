@@ -1,0 +1,33 @@
+# 数据库方言契约测试 / 本地体验用的数据库容器
+#   docker compose -f docker-compose.test.yml up -d
+#   docker compose -f docker-compose.test.yml down
+# 端口刻意避开默认的 3306/5432，防止撞上本机已有实例。
+# 数据不挂卷：容器删了数据就没了，测试库就该是一次性的。
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: apidoc-contract-mysql
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: contract-root
+      MYSQL_DATABASE: apidoc_test
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-pcontract-root"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: apidoc-contract-pg
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: contract-pass
+      POSTGRES_DB: apidoc_test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d apidoc_test"]
+      interval: 3s
+      timeout: 3s
+      retries: 30

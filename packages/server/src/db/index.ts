@@ -1,66 +1,42 @@
-import { DatabaseSync } from 'node:sqlite';
-import fs from 'node:fs';
-import path from 'node:path';
 import { config } from '../config.js';
+import type { Database, Dialect, Queryable, RunResult, Statement } from './types.js';
 
-fs.mkdirSync(path.dirname(config.dbPath), { recursive: true });
-
-const native = new DatabaseSync(config.dbPath);
-native.exec('PRAGMA journal_mode = WAL');
-native.exec('PRAGMA foreign_keys = ON');
-native.exec('PRAGMA busy_timeout = 5000');
+export type { Database, Dialect, Queryable, RunResult, Statement };
 
 /**
- * 极简适配器：把 node:sqlite 的包成 better-sqlite3 风格 API，
- * 让各 repository 无需改动即可使用。
+ * 唯一约束冲突识别（三方言统一判断）：
+ * - node:sqlite：SqliteError.errcode = 2067（SQLITE_CONSTRAINT_UNIQUE）/ 1555（_PRIMARYKEY）
+ * - mysql2：ER_DUP_ENTRY（errno 1062）
+ * - pg：SQLSTATE 23505 unique_violation
  */
-
-interface RunResult {
-  changes: number;
-  lastInsertRowid: number | bigint;
+export function isUniqueViolation(err: unknown): boolean {
+  const e = err as { code?: string; errno?: number; errcode?: number } | null;
+  if (!e) return false;
+  if (typeof e.errcode === 'number' && (e.errcode === 2067 || e.errcode === 1555)) return true;
+  if (typeof e.code === 'string') {
+    if (e.code.startsWith('SQLITE_CONSTRAINT')) return true;
+    if (e.code.startsWith('ER_DUP_ENTRY')) return true;
+    if (e.code === '23505') return true;
+  }
+  return e.errno === 1062;
 }
 
-class StatementAdapter {
-  constructor(private readonly stmt: ReturnType<DatabaseSync['prepare']>) {}
-
-  run(...params: unknown[]): RunResult {
-    const info = this.stmt.run(...(params as any[]));
-    return {
-      changes: Number(info.changes),
-      lastInsertRowid: info.lastInsertRowid,
-    } as RunResult;
-  }
-
-  get(...params: unknown[]): Record<string, any> | undefined {
-    return this.stmt.get(...(params as any[])) as Record<string, any> | undefined;
-  }
-
-  all(...params: unknown[]): Record<string, any>[] {
-    return this.stmt.all(...(params as any[])) as Record<string, any>[];
+async function createDb(): Promise<Database> {
+  switch (config.dbType) {
+    case 'sqlite': {
+      const { createSqliteDb } = await import('./drivers/sqlite.js');
+      return createSqliteDb();
+    }
+    case 'mysql': {
+      const { createMysqlDb } = await import('./drivers/mysql.js');
+      return createMysqlDb();
+    }
+    case 'postgres': {
+      const { createPostgresDb } = await import('./drivers/postgres.js');
+      return createPostgresDb();
+    }
   }
 }
 
-export const db = {
-  prepare(sql: string): StatementAdapter {
-    return new StatementAdapter(native.prepare(sql));
-  },
-  exec(sql: string): void {
-    native.exec(sql);
-  },
-  pragma(_name: string): void {
-    // PRAGMA 已在初始化时设置
-  },
-  transaction<T extends (...args: any[]) => any>(fn: T): T {
-    return ((...args: any[]) => {
-      native.exec('BEGIN');
-      try {
-        const result = fn(...args);
-        native.exec('COMMIT');
-        return result;
-      } catch (err) {
-        native.exec('ROLLBACK');
-        throw err;
-      }
-    }) as T;
-  },
-};
+/** 模块级单例：驱动按 DB_TYPE 懒加载，sqlite 模式不引入 mysql2/pg */
+export const db: Database = await createDb();

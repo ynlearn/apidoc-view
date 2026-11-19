@@ -54,20 +54,22 @@ function toSummary(row: Row): ShareSummary {
 const SELECT_WITH_DOC = `SELECT s.*, d.title AS document_title
   FROM shares s LEFT JOIN documents d ON d.id = s.document_id`;
 
-export function listShares(documentId?: string): ShareSummary[] {
+export async function listShares(documentId?: string): Promise<ShareSummary[]> {
   const rows = documentId
-    ? (db.prepare(`${SELECT_WITH_DOC} WHERE s.document_id = ? ORDER BY s.created_at DESC`).all(documentId) as Row[])
-    : (db.prepare(`${SELECT_WITH_DOC} ORDER BY s.created_at DESC`).all() as Row[]);
+    ? ((await db
+        .prepare(`${SELECT_WITH_DOC} WHERE s.document_id = ? ORDER BY s.created_at DESC`)
+        .all(documentId)) as Row[])
+    : ((await db.prepare(`${SELECT_WITH_DOC} ORDER BY s.created_at DESC`).all()) as Row[]);
   return rows.map(toSummary);
 }
 
-export function getShareById(id: string): ShareRecord | undefined {
-  const row = db.prepare('SELECT * FROM shares WHERE id = ?').get(id) as Row | undefined;
+export async function getShareById(id: string): Promise<ShareRecord | undefined> {
+  const row = (await db.prepare('SELECT * FROM shares WHERE id = ?').get(id)) as Row | undefined;
   return row ? toRecord(row) : undefined;
 }
 
-export function getShareByToken(token: string): ShareRecord | undefined {
-  const row = db.prepare('SELECT * FROM shares WHERE token = ?').get(token) as Row | undefined;
+export async function getShareByToken(token: string): Promise<ShareRecord | undefined> {
+  const row = (await db.prepare('SELECT * FROM shares WHERE token = ?').get(token)) as Row | undefined;
   return row ? toRecord(row) : undefined;
 }
 
@@ -81,29 +83,31 @@ export interface InsertShareInput {
   expiresAt?: number;
 }
 
-export function insertShare(input: InsertShareInput): string {
+export async function insertShare(input: InsertShareInput): Promise<string> {
   const id = randomUUID();
   const now = Date.now();
-  db.prepare(
-    `INSERT INTO shares
+  await db
+    .prepare(
+      `INSERT INTO shares
       (id, token, target_type, document_id, operation_id, title, password_hash, expires_at, enabled, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`,
-  ).run(
-    id,
-    input.token,
-    input.targetType,
-    input.documentId,
-    input.operationId ?? null,
-    input.title,
-    input.passwordHash ?? null,
-    input.expiresAt ?? null,
-    now,
-    now,
-  );
+    )
+    .run(
+      id,
+      input.token,
+      input.targetType,
+      input.documentId,
+      input.operationId ?? null,
+      input.title,
+      input.passwordHash ?? null,
+      input.expiresAt ?? null,
+      now,
+      now,
+    );
   return id;
 }
 
-export function updateShare(
+export async function updateShare(
   id: string,
   patch: {
     title?: string;
@@ -113,7 +117,7 @@ export function updateShare(
     /** null 表示改为永久 */
     expiresAt?: number | null;
   },
-): boolean {
+): Promise<boolean> {
   const sets: string[] = [];
   const values: unknown[] = [];
   if (patch.title !== undefined) {
@@ -135,15 +139,15 @@ export function updateShare(
   if (!sets.length) return true;
   sets.push('updated_at = ?');
   values.push(Date.now(), id);
-  const result = db.prepare(`UPDATE shares SET ${sets.join(', ')} WHERE id = ?`).run(...values);
+  const result = await db.prepare(`UPDATE shares SET ${sets.join(', ')} WHERE id = ?`).run(...values);
   return result.changes > 0;
 }
 
-export function deleteShare(id: string): boolean {
-  return db.prepare('DELETE FROM shares WHERE id = ?').run(id).changes > 0;
+export async function deleteShare(id: string): Promise<boolean> {
+  return (await db.prepare('DELETE FROM shares WHERE id = ?').run(id)).changes > 0;
 }
 
 /** 删除文档时连带清掉其分享链接，避免留下指向空文档的死链 */
-export function deleteSharesByDocument(documentId: string): number {
-  return db.prepare('DELETE FROM shares WHERE document_id = ?').run(documentId).changes;
+export async function deleteSharesByDocument(documentId: string): Promise<number> {
+  return (await db.prepare('DELETE FROM shares WHERE document_id = ?').run(documentId)).changes;
 }

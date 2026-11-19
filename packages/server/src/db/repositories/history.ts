@@ -57,54 +57,59 @@ export interface InsertHistoryInput {
   error?: string;
 }
 
-export function insertHistory(input: InsertHistoryInput): string {
+export async function insertHistory(input: InsertHistoryInput): Promise<string> {
   const id = randomUUID();
-  db.prepare(
-    `INSERT INTO history
+  await db
+    .prepare(
+      `INSERT INTO history
       (id, method, url_template, url_actual, request_headers_json, request_body,
        status_code, duration_ms, response_size, response_preview, error, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    input.method,
-    input.urlTemplate ?? null,
-    input.urlActual,
-    JSON.stringify(sanitizeHeaders(input.requestHeaders)),
-    truncate(input.requestBody, config.responsePreviewBytes) ?? null,
-    input.statusCode ?? null,
-    input.durationMs ?? null,
-    input.responseSize ?? null,
-    truncate(input.responsePreview, config.responsePreviewBytes) ?? null,
-    input.error ?? null,
-    Date.now(),
-  );
+    )
+    .run(
+      id,
+      input.method,
+      input.urlTemplate ?? null,
+      input.urlActual,
+      JSON.stringify(sanitizeHeaders(input.requestHeaders)),
+      truncate(input.requestBody, config.responsePreviewBytes) ?? null,
+      input.statusCode ?? null,
+      input.durationMs ?? null,
+      input.responseSize ?? null,
+      truncate(input.responsePreview, config.responsePreviewBytes) ?? null,
+      input.error ?? null,
+      Date.now(),
+    );
 
-  // 保留最近 N 条
-  db.prepare(
-    `DELETE FROM history WHERE id IN (
-       SELECT id FROM history ORDER BY created_at DESC LIMIT -1 OFFSET ?
-     )`,
-  ).run(config.historyRetention);
+  // 保留最近 N 条。可移植写法：MySQL 的 IN 子查询里不能直接带 LIMIT，
+  // 包一层派生表（AS keep）后 sqlite / mysql / pg 三方言通用
+  await db
+    .prepare(
+      `DELETE FROM history WHERE id NOT IN (
+         SELECT id FROM (SELECT id FROM history ORDER BY created_at DESC LIMIT ?) AS keep
+       )`,
+    )
+    .run(config.historyRetention);
   return id;
 }
 
-export function listHistory(limit = 50, offset = 0): { total: number; items: HistoryEntry[] } {
-  const total = (db.prepare('SELECT COUNT(*) AS c FROM history').get() as Row).c;
-  const rows = db
+export async function listHistory(limit = 50, offset = 0): Promise<{ total: number; items: HistoryEntry[] }> {
+  const total = ((await db.prepare('SELECT COUNT(*) AS c FROM history').get()) as Row).c;
+  const rows = (await db
     .prepare('SELECT * FROM history ORDER BY created_at DESC LIMIT ? OFFSET ?')
-    .all(limit, offset) as Row[];
+    .all(limit, offset)) as Row[];
   return { total, items: rows.map(toEntry) };
 }
 
-export function getHistory(id: string): HistoryEntry | undefined {
-  const row = db.prepare('SELECT * FROM history WHERE id = ?').get(id) as Row | undefined;
+export async function getHistory(id: string): Promise<HistoryEntry | undefined> {
+  const row = (await db.prepare('SELECT * FROM history WHERE id = ?').get(id)) as Row | undefined;
   return row ? toEntry(row) : undefined;
 }
 
-export function deleteHistory(id: string): boolean {
-  return db.prepare('DELETE FROM history WHERE id = ?').run(id).changes > 0;
+export async function deleteHistory(id: string): Promise<boolean> {
+  return (await db.prepare('DELETE FROM history WHERE id = ?').run(id)).changes > 0;
 }
 
-export function clearHistory(): void {
-  db.prepare('DELETE FROM history').run();
+export async function clearHistory(): Promise<void> {
+  await db.prepare('DELETE FROM history').run();
 }

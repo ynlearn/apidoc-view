@@ -18,13 +18,13 @@ function toSummary(row: Row): DocumentSummary {
   };
 }
 
-export function listDocuments(): DocumentSummary[] {
-  const rows = db.prepare('SELECT * FROM documents ORDER BY updated_at DESC').all() as Row[];
+export async function listDocuments(): Promise<DocumentSummary[]> {
+  const rows = (await db.prepare('SELECT * FROM documents ORDER BY updated_at DESC').all()) as Row[];
   return rows.map(toSummary);
 }
 
-export function getDocument(id: string): DocumentDetail | undefined {
-  const row = db.prepare('SELECT * FROM documents WHERE id = ?').get(id) as Row | undefined;
+export async function getDocument(id: string): Promise<DocumentDetail | undefined> {
+  const row = (await db.prepare('SELECT * FROM documents WHERE id = ?').get(id)) as Row | undefined;
   if (!row) return undefined;
   let normalized: NormalizedDocument;
   try {
@@ -45,31 +45,33 @@ export interface InsertDocumentInput {
   normalized: NormalizedDocument;
 }
 
-export function insertDocument(input: InsertDocumentInput): string {
+export async function insertDocument(input: InsertDocumentInput): Promise<string> {
   const id = randomUUID();
   const now = Date.now();
-  db.prepare(
-    `INSERT INTO documents
+  await db
+    .prepare(
+      `INSERT INTO documents
       (id, title, source_type, source_value, spec_version, raw_content, raw_format, normalized_json, operation_count, created_at, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    input.title,
-    input.sourceType,
-    input.sourceValue ?? null,
-    input.specVersion ?? null,
-    input.rawContent,
-    input.rawFormat,
-    JSON.stringify(input.normalized),
-    input.normalized.operationCount,
-    now,
-    now,
-  );
+    )
+    .run(
+      id,
+      input.title,
+      input.sourceType,
+      input.sourceValue ?? null,
+      input.specVersion ?? null,
+      input.rawContent,
+      input.rawFormat,
+      JSON.stringify(input.normalized),
+      input.normalized.operationCount,
+      now,
+      now,
+    );
   return id;
 }
 
-export function deleteDocument(id: string): boolean {
-  return db.prepare('DELETE FROM documents WHERE id = ?').run(id).changes > 0;
+export async function deleteDocument(id: string): Promise<boolean> {
+  return (await db.prepare('DELETE FROM documents WHERE id = ?').run(id)).changes > 0;
 }
 
 /**
@@ -77,7 +79,7 @@ export function deleteDocument(id: string): boolean {
  * 手工改接口必须走这里：raw_content 与 normalized_json 必须同步更新，
  * 否则 GET /documents/:id 的实时重新归一化会把手改结果覆盖掉。
  */
-export function replaceDocumentContent(
+export async function replaceDocumentContent(
   id: string,
   input: {
     rawContent: string;
@@ -86,8 +88,8 @@ export function replaceDocumentContent(
     title?: string;
     sourceType?: string;
   },
-): boolean {
-  const result = db
+): Promise<boolean> {
+  const result = await db
     .prepare(
       `UPDATE documents
        SET raw_content = ?, raw_format = ?, normalized_json = ?, operation_count = ?,

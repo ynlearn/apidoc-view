@@ -51,6 +51,21 @@ NODE_NO_WARNINGS=1 node packages/server/dist/index.js   # 单进程同时托管 
 
 访问 http://localhost:3000 。
 
+## 测试
+
+```bash
+pnpm test:smoke        # 冒烟回归：自己拉起隔离实例 + 临时 DB，23 项断言，失败退出码 1
+```
+
+冒烟脚本只走 HTTP（健康检查、鉴权边界、文档导入、单接口增改删、导出、分享口令链路），跑完自动清理，不碰你本机的 `data/app.db`。要打已运行的实例：
+
+```bash
+TEST_PORT=3111 pnpm test:smoke     # 换端口
+TEST_BASE=http://127.0.0.1:3000 ADMIN_PASSWORD=xxx node tests/smoke.mjs   # 打外部实例
+```
+
+`tests/verify-perf.mjs`、`tests/shot-opensource.mjs` 是 UI 侧的临时脚本（需要本机 Chrome），同样通过 `tests/lib/api.mjs` 自动登录，不再裸奔 401。
+
 ## 调试内网服务
 
 SSRF 防护默认拦截所有内网地址。若要调试内网服务，通过环境变量配置**内网例外白名单**（精确 host，不支持网段通配）：
@@ -79,7 +94,15 @@ SSRF_INTERNAL_ALLOWLIST=my-api.internal,10.0.0.5 pnpm dev
 | 环境变量 | 默认值 | 说明 |
 |---|---|---|
 | `PORT` | 3000 | 后端端口 |
-| `DB_PATH` | `<项目>/data/app.db` | SQLite 数据库路径 |
+| `DB_TYPE` | `sqlite` | 数据库方言：`sqlite` / `mysql` / `postgres`（别名 `pg`、`postgresql`、`mariadb`） |
+| `DB_PATH` | `<项目>/data/app.db` | SQLite 数据库文件路径（仅 sqlite 模式） |
+| `DB_URL` | 空 | mysql/pg 连接串（如 `mysql://user:pass@host:3306/db`），给出时优先于下面的零散参数 |
+| `DB_HOST` | `127.0.0.1` | mysql/pg 主机 |
+| `DB_PORT` | mysql 3306 / pg 5432 | mysql/pg 端口 |
+| `DB_USER` | `apidoc` | mysql/pg 用户名 |
+| `DB_PASSWORD` | 空 | mysql/pg 密码 |
+| `DB_NAME` | `apidoc_view` | mysql/pg 数据库名（需预先建库） |
+| `DB_POOL_SIZE` | 10 | mysql/pg 连接池大小（sqlite 模式不使用） |
 | `SSRF_INTERNAL_ALLOWLIST` | 空 | 内网例外 host 白名单（逗号分隔） |
 | `ALLOWED_HOSTS` | 空 | 设置后仅允许这些 host（支持 `*.example.com`） |
 | `BLOCKED_PORTS` | 22,23,25,3306,6379,27017,11211 | 端口黑名单 |
@@ -95,11 +118,23 @@ SSRF_INTERNAL_ALLOWLIST=my-api.internal,10.0.0.5 pnpm dev
 
 ## 数据与安全说明
 
-- 数据库文件在 `data/app.db`，已加入 `.gitignore`。环境密钥（如 X-Api-Key）以明文存储，请仅在内网使用，勿存生产高敏密钥。
+- 数据库支持三种方言：默认 SQLite（零依赖，文件在 `data/app.db`）；设置 `DB_TYPE=mysql` 或 `postgres` 后写入外部数据库（需预先建库，表结构首次启动自动创建；应用账号无 DDL 权限或需 DBA 预审时，手动执行 `scripts/sql/schema.mysql.sql` / `scripts/sql/schema.postgres.sql`，与自动建表逐字同源）。注意：`.admin-password` / `.auth-secret` 等运行时密钥文件仍落在本地 `data/` 目录，多实例部署需共享或统一注入 `AUTH_SECRET`。环境密钥（如 X-Api-Key）以明文存储，请仅在内网使用，勿存生产高敏密钥。
 - 请求历史中的敏感头已脱敏，响应仅存截断预览。
 - 鉴权接口分层：文档/环境/全局变量的写操作与请求历史仅管理员可访问；查看端的读接口与调试代理在开启访问口令时需携带浏览 token（管理员 token 视为超集）。
 - Markdown 渲染关闭了原始 HTML（`html: false`），Markdown 文件无法注入脚本。
 - SSRF 校验在「DNS 解析后」进行并把连接锁定到已验证 IP，重定向逐跳重新校验，防止 DNS rebinding 与跳转到内网。
+
+## 开发与测试
+
+```bash
+pnpm test:smoke                 # HTTP 冒烟回归（自建临时 SQLite，不碰存量数据）
+node --import tsx tests/db-contract.mjs                                    # 数据库契约测试（sqlite）
+docker compose -f docker-compose.test.yml up -d                            # 起 mysql/pg 测试容器
+DB_TYPE=mysql    DB_URL='mysql://root:contract-root@127.0.0.1:3307/apidoc_test'       node --import tsx tests/db-contract.mjs
+DB_TYPE=postgres DB_URL='postgres://postgres:contract-pass@127.0.0.1:5433/apidoc_test' node --import tsx tests/db-contract.mjs
+```
+
+契约测试直连仓储层，同一套断言跑三种方言，覆盖迁移幂等、五表 CRUD、事务语义、历史保留截断、唯一约束识别与特殊字符往返。
 
 ## 当前不支持
 
