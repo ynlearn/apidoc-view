@@ -1,0 +1,167 @@
+:root {
+  /* ===== Apifox 风格设计令牌（浅色主题） ===== */
+  --af-primary: #6a5cf5;
+  --af-primary-hover: #5849e8;
+  --af-primary-active: #4a3bd4;
+  --af-primary-light: #f0eeff;
+  --af-primary-lighter: #f7f6ff;
+
+  --af-bg: #ffffff;
+  --af-bg-subtle: #fafbfc;
+  --af-bg-hover: #f5f6f8;
+  --af-sidebar-bg: #ffffff;
+
+  --af-text: #1d2129;
+  --af-text-secondary: #4e5969;
+  --af-text-tertiary: #86909c;
+  --af-text-placeholder: #a9aeb8;
+
+  --af-border: #e5e6eb;
+  --af-border-light: #f0f1f3;
+
+  --af-green: #00b42a;
+  --af-orange: #ff7d00;
+  --af-red: #f53f3f;
+  --af-blue: #165dff;
+
+  --af-code-bg: #1e2230;
+  --af-quote-bg: #f7f8fa;
+
+  --af-radius: 6px;
+  --af-radius-lg: 10px;
+  --af-shadow: 0 4px 16px rgba(29, 33, 41, 0.08);
+  --af-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+  --af-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+
+  /* Element Plus 主题覆盖为靛紫 */
+  --el-color-primary: #6a5cf5;
+  --el-color-primary-light-3: #9186f8;
+  --el-color-primary-light-5: #b1a9fa;
+  --el-color-primary-light-7: #cfcafd;
+  --el-color-primary-light-8: #dfdcfd;
+  --el-color-primary-light-9: #efedfe;
+  --el-color-primary-dark-2: #5546d6;
+  --el-font-family: var(--af-font);
+  --el-border-radius-base: 6px;
+
+  /* 兼容旧组件的变量别名 */
+  --bb-bg: var(--af-bg-subtle);
+  --bb-panel: var(--af-bg);
+  --bb-border: var(--af-border);
+  --bb-text: var(--af-text);
+  --bb-text-muted: var(--af-text-tertiary);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #app {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  font-family: var(--af-font);
+  color: var(--af-text);
+  background: var(--af-bg);
+  font-size: 14px;
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--af-primary); text-decoration: none; }
+
+/* ===== 可访问性基线 ===== */
+/* 键盘焦点环：仅键盘导航时出现，不干扰鼠标点击 */
+:focus-visible {
+  outline: 2px solid var(--af-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+/* 尊重系统"减少动效"偏好 */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ===== 等宽数字：状态码 / 耗时 / 大小纵向对齐 ===== */
+.resp-summary, .status-badge { font-variant-numeric: tabular-nums; }
+
+/* ===== 方法标签 ===== */
+.method-tag {
+  display: inline-block;
+  min-width: 46px;
+  text-align: center;
+  padding: 1px 7px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  letter-spacing: .2px;
+  font-family: var(--af-mono);
+}
+.method-GET { background: #00b42a; }
+.method-POST { background: #165dff; }
+.method-PUT { background: #ff7d00; }
+.method-DELETE { background: #f53f3f; }
+.method-PATCH { background: #722ed1; }
+.method-HEAD, .method-OPTIONS { background: #86909c; }
+
+/* ===== 代码块（Apifox 深色） ===== */
+.code-block {
+  font-family: var(--af-mono);
+  font-size: 12.5px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+  background: var(--af-code-bg);
+  color: #e8e6f0;
+  border-radius: var(--af-radius);
+  padding: 14px 16px;
+  margin: 0;
+  overflow-x: auto;
+}
+
+/* ===== 通用区块标题（规范 H2 阶：20px/600） ===== */
+.af-section-title {
+  font-size: 20px;
+  font-weight: 600;
+  line-height: 1.4;
+  color: var(--af-text);
+  margin: 40px 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--af-border-light);
+  scroll-margin-top: 20px;
+}
+
+/* ===== 引用提示块（正文阶 14px） ===== */
+.af-quote {
+  background: var(--af-quote-bg);
+  border-left: 3px solid var(--af-primary);
+  border-radius: 0 var(--af-radius) var(--af-radius) 0;
+  padding: 14px 20px;
+  color: var(--af-text-secondary);
+  font-size: 14px;
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+/* ===== 滚动条美化 ===== */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #d8dbe0; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #c2c6cd; }
+::-webkit-scrollbar-track { background: transparent; }
+
+.full-height { height: 100%; }
+
+/* Element Plus 表格密度放宽（管理端/历史等） */
+.el-table .el-table__cell { padding: 11px 0; }
+
+.el-table, .el-tabs__content { max-width: 100%; }
+
+@media (max-width: 768px) {
+  html, body, #app { overflow-x: hidden; }
+  .el-dialog { width: 94vw !important; max-width: 94vw; }
+  .el-drawer { width: 94vw !important; }
+}

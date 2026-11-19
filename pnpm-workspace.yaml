@@ -1,0 +1,8 @@
+packages:
+  - "packages/*"
+
+verifyDepsBeforeRun: false
+
+allowBuilds:
+  esbuild: true
+  vue-demi: true

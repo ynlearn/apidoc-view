@@ -1,0 +1,133 @@
+<template>
+  <el-dialog
+    v-model="visible"
+    title="导入 OpenAPI 文档"
+    width="640px"
+    :close-on-click-modal="false"
+  >
+    <el-tabs v-model="activeTab">
+      <el-tab-pane label="URL 导入" name="url">
+        <el-form label-position="top">
+          <el-form-item label="文档 URL（将经服务端安全校验后拉取）">
+            <el-input v-model="url" placeholder="https://example.com/openapi.json" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <el-tab-pane label="粘贴内容" name="paste">
+        <el-form label-position="top">
+          <el-form-item label="格式">
+            <el-radio-group v-model="pasteFormat">
+              <el-radio-button value="json">JSON</el-radio-button>
+              <el-radio-button value="yaml">YAML</el-radio-button>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="文档内容">
+            <CodeEditor v-model="pasteContent" height="260px" />
+          </el-form-item>
+        </el-form>
+      </el-tab-pane>
+
+      <el-tab-pane label="上传文件" name="file">
+        <el-upload
+          drag
+          :auto-upload="false"
+          :limit="1"
+          accept=".json,.yaml,.yml"
+          :on-change="onFileChange"
+        >
+          <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+          <div class="el-upload__text">拖拽文件到此处，或 <em>点击选择</em></div>
+          <template #tip>
+            <div class="el-upload__tip">支持 .json / .yaml / .yml 文件，最大 5MB</div>
+          </template>
+        </el-upload>
+      </el-tab-pane>
+    </el-tabs>
+
+    <template #footer>
+      <el-button @click="visible = false">取消</el-button>
+      <el-button type="primary" :loading="loading" @click="onImport">导入</el-button>
+    </template>
+  </el-dialog>
+</template>
+
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { UploadFilled } from '@element-plus/icons-vue';
+import { ElMessage } from 'element-plus';
+import type { UploadFile } from 'element-plus';
+import CodeEditor from './CodeEditor.vue';
+import { useDocumentsStore } from '../stores/documents';
+
+const props = defineProps<{ modelValue: boolean }>();
+const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>();
+
+const docsStore = useDocumentsStore();
+const activeTab = ref('url');
+const url = ref('');
+const pasteFormat = ref<'json' | 'yaml'>('json');
+const pasteContent = ref('');
+const fileContent = ref('');
+const fileFormat = ref<'json' | 'yaml'>('json');
+const loading = ref(false);
+
+const visible = computed({
+  get: () => props.modelValue,
+  set: (v) => emit('update:modelValue', v),
+});
+
+function onFileChange(file: UploadFile) {
+  const raw = file.raw;
+  if (!raw) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    fileContent.value = String(reader.result ?? '');
+    fileFormat.value = raw.name.toLowerCase().endsWith('.json') ? 'json' : 'yaml';
+  };
+  reader.readAsText(raw);
+}
+
+async function onImport() {
+  loading.value = true;
+  try {
+    if (activeTab.value === 'url') {
+      if (!url.value.trim()) {
+        ElMessage.warning('请输入文档 URL');
+        return;
+      }
+      await docsStore.importFromUrl(url.value.trim());
+    } else if (activeTab.value === 'paste') {
+      if (!pasteContent.value.trim()) {
+        ElMessage.warning('请粘贴文档内容');
+        return;
+      }
+      await docsStore.addDocument({
+        content: pasteContent.value,
+        format: pasteFormat.value,
+        sourceType: 'paste',
+      });
+    } else {
+      if (!fileContent.value.trim()) {
+        ElMessage.warning('请选择文件');
+        return;
+      }
+      await docsStore.addDocument({
+        content: fileContent.value,
+        format: fileFormat.value,
+        sourceType: 'file',
+      });
+    }
+    ElMessage.success('导入成功');
+    visible.value = false;
+    // 重置
+    url.value = '';
+    pasteContent.value = '';
+    fileContent.value = '';
+  } catch {
+    // 错误已由 axios 拦截器提示
+  } finally {
+    loading.value = false;
+  }
+}
+</script>

@@ -1,0 +1,28 @@
+node_modules/
+dist/
+docs/
+examples/
+*.tsbuildinfo
+
+# 运行时数据与环境
+data/
+.env
+.env.*
+*.log
+
+# 会话与工具元数据
+.workbuddy/
+workbuddy/
+
+# 测试产物（真实接口文档副本仅本地保留）
+tests/fixtures-real-openapi.json
+tests/screenshots/
+tests/results*.json
+tests/overview.md
+tests/测试报告.html
+
+# 编辑器与系统
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

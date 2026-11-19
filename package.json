@@ -1,0 +1,17 @@
+{
+  "name": "bluebull-cu",
+  "version": "0.1.0",
+  "private": true,
+  "description": "API 文档管理与在线调试工具（OpenAPI 3.0 + Debugger）",
+  "scripts": {
+    "dev": "pnpm --parallel -r run dev",
+    "dev:server": "pnpm --filter @bluebull/server dev",
+    "dev:web": "pnpm --filter @bluebull/web dev",
+    "build": "pnpm --filter @bluebull/shared build && pnpm --filter @bluebull/server build && pnpm --filter @bluebull/web build",
+    "typecheck": "pnpm -r run typecheck"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "packageManager": "pnpm@11.2.2"
+}
