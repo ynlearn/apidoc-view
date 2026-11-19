@@ -8,11 +8,14 @@ examples/
 data/
 .env
 .env.*
+# 配置模板要入库，否则新人不知道有哪些开关
+!.env.example
 *.log
 
 # 会话与工具元数据
 .workbuddy/
 workbuddy/
+.long-task-control/
 
 # 测试产物（真实接口文档副本仅本地保留）
 tests/fixtures-real-openapi.json

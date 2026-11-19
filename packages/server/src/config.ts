@@ -5,6 +5,17 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // src -> packages/server -> 项目根
 const projectRoot = path.resolve(__dirname, '../../..');
 
+/**
+ * 优先加载项目根目录的 .env（Node 20.12+ 内置能力，不引 dotenv）。
+ * loadEnvFile 不覆盖已存在的环境变量——线上用环境变量注入密码时，不会被仓库里的 .env 顶掉。
+ * 没有 .env 文件是正常情况（纯环境变量部署），忽略异常即可。
+ */
+try {
+  process.loadEnvFile(path.join(projectRoot, '.env'));
+} catch {
+  /* 无 .env，走纯环境变量 */
+}
+
 function parseHosts(value: string | undefined): string[] {
   if (!value) return [];
   return value
@@ -45,6 +56,18 @@ export const config = {
   // 历史
   historyRetention: Number(process.env.HISTORY_RETENTION ?? 200),
   responsePreviewBytes: Number(process.env.RESPONSE_PREVIEW_BYTES ?? 4096),
+
+  // 鉴权
+  /** 管理端登录账号 */
+  adminUsername: process.env.ADMIN_USERNAME ?? 'admin',
+  /** 管理端登录密码；未设置时启动时生成随机密码并落盘 data/.admin-password */
+  adminPassword: process.env.ADMIN_PASSWORD,
+  /** 浏览端访问口令；未设置则浏览端完全开放 */
+  viewPassword: process.env.VIEW_PASSWORD,
+  /** token 签名密钥；未设置时生成随机密钥并落盘 data/.auth-secret */
+  authSecret: process.env.AUTH_SECRET,
+  /** 登录态有效期（小时） */
+  sessionTtlHours: Number(process.env.SESSION_TTL_HOURS ?? 12),
 
   // 静态托管（生产环境）
   webDistPath: path.join(projectRoot, 'packages', 'web', 'dist'),

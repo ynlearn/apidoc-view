@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { AppError } from '../middleware/AppError.js';
 import { validateBody, validateQuery } from '../middleware/validate.js';
+import { requireAdmin, requireView } from '../middleware/auth.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { clearHistory, deleteHistory, getHistory, insertHistory, listHistory } from '../db/repositories/history.js';
 import { proxyRequest } from '../services/proxyService.js';
@@ -25,7 +26,7 @@ const proxySchema = z.object({
   interpolate: z.boolean().optional(),
 });
 
-proxyRouter.post('/', validateBody(proxySchema), asyncHandler(async (req, res) => {
+proxyRouter.post('/', requireView, validateBody(proxySchema), asyncHandler(async (req, res) => {
   const input = { ...(req.body as z.infer<typeof proxySchema>) };
   const unresolved: string[] = [];
 
@@ -71,24 +72,24 @@ const historyQuerySchema = z.object({
   offset: z.coerce.number().int().min(0).default(0),
 });
 
-historyRouter.get('/', validateQuery(historyQuerySchema), (_req, res) => {
+historyRouter.get('/', requireAdmin, validateQuery(historyQuerySchema), (_req, res) => {
   const { limit, offset } = res.locals.query as { limit: number; offset: number };
   res.json(listHistory(limit, offset));
 });
 
-historyRouter.get('/:id', (req, res) => {
+historyRouter.get('/:id', requireAdmin, (req, res) => {
   const entry = getHistory(req.params.id);
   if (!entry) throw new AppError(404, 'NOT_FOUND', '历史记录不存在');
   res.json(entry);
 });
 
-historyRouter.delete('/:id', (req, res) => {
+historyRouter.delete('/:id', requireAdmin, (req, res) => {
   const ok = deleteHistory(req.params.id);
   if (!ok) throw new AppError(404, 'NOT_FOUND', '历史记录不存在');
   res.status(204).end();
 });
 
-historyRouter.delete('/', (_req, res) => {
+historyRouter.delete('/', requireAdmin, (_req, res) => {
   clearHistory();
   res.status(204).end();
 });

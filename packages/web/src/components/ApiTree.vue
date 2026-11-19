@@ -24,15 +24,27 @@
           @click.stop="onPickDoc(doc.id)"
         >
           <span>{{ doc.title }}</span>
-          <span class="doc-option-count">{{ doc.operationCount }}</span>
+          <span class="doc-option-count">{{ doc.rawFormat === 'markdown' ? 'MD' : doc.operationCount }}</span>
         </div>
         <div v-if="!docsStore.list.length" class="doc-picker-empty">暂无文档，请到管理后台导入</div>
       </div>
     </div>
 
+    <!-- Markdown 文档没有接口树，提示目录在右侧 -->
+    <div v-if="isMarkdownDoc" class="tree-empty">
+      <el-empty :image-size="70" description="Markdown 文档">
+        <template #description>
+          <div class="tree-empty-hint">
+            <el-icon><Document /></el-icon>
+            纯文本文档，标题目录见右侧
+          </div>
+        </template>
+      </el-empty>
+    </div>
+
     <!-- 接口树 -->
     <el-tree
-      v-if="normalized"
+      v-else-if="normalized"
       :data="treeData"
       node-key="id"
       :default-expand-all="true"
@@ -60,14 +72,14 @@
 
     <div v-else class="tree-empty">
       <el-empty description="暂无文档" :image-size="70" />
-      <router-link to="/admin" class="tree-empty-link">前往管理后台导入 →</router-link>
+      <div class="tree-empty-hint">请先由管理员在管理后台导入文档</div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue';
-import { Search, Files, ArrowDown, FolderOpened } from '@element-plus/icons-vue';
+import { Search, Files, ArrowDown, FolderOpened, Document } from '@element-plus/icons-vue';
 import type { NormalizedDocument, OperationView } from '@openapi-view/shared';
 import { useDocumentsStore } from '../stores/documents';
 import type { ElTree } from 'element-plus';
@@ -77,6 +89,7 @@ const docsStore = useDocumentsStore();
 const keyword = ref('');
 const pickerOpen = ref(false);
 const treeRef = ref<InstanceType<typeof ElTree>>();
+const isMarkdownDoc = computed(() => docsStore.current?.rawFormat === 'markdown');
 
 interface TreeNode {
   id: string;
@@ -246,5 +259,14 @@ async function onPickDoc(id: string) {
   margin-right: 8px;
 }
 .tree-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.tree-empty-link { font-size: 12px; margin-top: -10px; }
+.tree-empty-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--af-text-tertiary);
+  margin-top: -10px;
+  text-align: center;
+  padding: 0 10px;
+}
 </style>

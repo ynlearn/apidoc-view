@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { AppError } from '../middleware/AppError.js';
 import { validateBody } from '../middleware/validate.js';
+import { requireAdmin, requireView } from '../middleware/auth.js';
 import {
   activateEnvironment,
   createEnvironment,
@@ -22,12 +23,12 @@ const updateSchema = z.object({
   variables: variablesSchema.optional(),
 });
 
-environmentsRouter.get('/', (_req, res) => {
+environmentsRouter.get('/', requireView, (_req, res) => {
   const items = listEnvironments();
   res.json({ items, activeId: items.find((e) => e.isActive)?.id ?? null });
 });
 
-environmentsRouter.post('/', validateBody(createSchema), (req, res) => {
+environmentsRouter.post('/', requireAdmin, validateBody(createSchema), (req, res) => {
   try {
     const env = createEnvironment(req.body.name, req.body.variables);
     res.status(201).json(env);
@@ -39,19 +40,19 @@ environmentsRouter.post('/', validateBody(createSchema), (req, res) => {
   }
 });
 
-environmentsRouter.put('/:id', validateBody(updateSchema), (req, res) => {
+environmentsRouter.put('/:id', requireAdmin, validateBody(updateSchema), (req, res) => {
   const env = updateEnvironment(req.params.id, req.body);
   if (!env) throw new AppError(404, 'NOT_FOUND', '环境不存在');
   res.json(env);
 });
 
-environmentsRouter.delete('/:id', (req, res) => {
+environmentsRouter.delete('/:id', requireAdmin, (req, res) => {
   const ok = deleteEnvironment(req.params.id);
   if (!ok) throw new AppError(404, 'NOT_FOUND', '环境不存在');
   res.status(204).end();
 });
 
-environmentsRouter.post('/:id/activate', (req, res) => {
+environmentsRouter.post('/:id/activate', requireAdmin, (req, res) => {
   const env = activateEnvironment(req.params.id);
   if (!env) throw new AppError(404, 'NOT_FOUND', '环境不存在');
   res.json(env);

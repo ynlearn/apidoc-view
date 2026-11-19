@@ -10,16 +10,17 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@openapi-view/shared": "workspace:*",
     "@codemirror/commands": "^6.8.1",
     "@codemirror/lang-json": "^6.0.1",
     "@codemirror/state": "^6.5.2",
     "@codemirror/theme-one-dark": "^6.1.2",
     "@codemirror/view": "^6.36.5",
     "@element-plus/icons-vue": "^2.3.1",
+    "@openapi-view/shared": "workspace:*",
     "axios": "^1.7.9",
     "codemirror": "^6.0.1",
     "element-plus": "^2.9.5",
+    "markdown-it": "^15.0.3",
     "pinia": "^2.3.0",
     "vue": "^3.5.13",
     "vue-json-pretty": "^2.4.0",

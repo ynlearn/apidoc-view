@@ -2,14 +2,14 @@
   <aside class="doc-toc">
     <div class="toc-head">
       <el-icon><List /></el-icon>
-      <span>本页目录</span>
+      <span>{{ headings ? '文档目录' : '本页目录' }}</span>
     </div>
     <nav class="toc-nav">
       <a
         v-for="item in items"
         :key="item.id"
         class="toc-item"
-        :class="{ active: activeId === item.id, indent: item.level === 2 }"
+        :class="{ active: activeId === item.id, indent: item.level > 1 }"
         :href="`#${item.id}`"
         @click.prevent="scrollTo(item.id)"
       >{{ item.label }}</a>
@@ -18,32 +18,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { List } from '@element-plus/icons-vue';
 import type { OperationView } from '@openapi-view/shared';
+import type { MarkdownHeading } from '../utils/markdown';
 
-interface TocItem { id: string; label: string; level: 1 | 2 }
-const props = defineProps<{ operation: OperationView | null }>();
-const items = ref<TocItem[]>([]);
+interface TocItem { id: string; label: string; level: number }
+
+// headings 传了就走 Markdown 标题目录，否则按接口结构生成
+const props = defineProps<{ operation: OperationView | null; headings?: MarkdownHeading[] }>();
 const activeId = ref('');
 
-watch(
-  () => props.operation,
-  (op) => {
-    if (!op) { items.value = []; return; }
-    const list: TocItem[] = [{ id: 'doc-top', label: '接口概览', level: 1 }];
-    if (op.description) list.push({ id: 'doc-description', label: '接口说明', level: 1 });
-    list.push({ id: 'doc-params', label: '请求参数', level: 1 });
-    if (op.requestBody) list.push({ id: 'doc-request-body', label: '请求体', level: 1 });
-    list.push({ id: 'doc-responses', label: '响应', level: 1 });
-    for (const resp of op.responses) {
-      list.push({ id: `resp-${resp.status}`, label: `${resp.status} ${resp.description || ''}`.trim(), level: 2 });
-    }
-    items.value = list;
-    activeId.value = list[0]?.id ?? '';
-  },
-  { immediate: true },
-);
+const items = computed<TocItem[]>(() => {
+  if (props.headings) {
+    return props.headings.map((h) => ({ id: h.id, label: h.label, level: h.level }));
+  }
+  const op = props.operation;
+  if (!op) return [];
+
+  const list: TocItem[] = [{ id: 'doc-top', label: '接口概览', level: 1 }];
+  if (op.description) list.push({ id: 'doc-description', label: '接口说明', level: 1 });
+  list.push({ id: 'doc-params', label: '请求参数', level: 1 });
+  if (op.requestBody) list.push({ id: 'doc-request-body', label: '请求体', level: 1 });
+  list.push({ id: 'doc-responses', label: '响应', level: 1 });
+  for (const resp of op.responses) {
+    list.push({ id: `resp-${resp.status}`, label: `${resp.status} ${resp.description || ''}`.trim(), level: 2 });
+  }
+  return list;
+});
+
+watch(items, (list) => { activeId.value = list[0]?.id ?? ''; }, { immediate: true });
 
 function scrollTo(id: string) {
   activeId.value = id;

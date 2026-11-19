@@ -1,6 +1,8 @@
 <template>
-  <div class="admin-page">
-    <AppHeader :show-env="false" />
+  <AuthGate v-if="needLogin" mode="admin" />
+
+  <div v-else-if="authStore.ready" class="admin-page">
+    <AppHeader :show-env="false" :show-logout="true" home-to="/admin" subtitle="文档管理后台" />
 
     <div class="admin-body">
       <!-- 管理端子菜单 -->
@@ -16,11 +18,6 @@
           <el-icon><component :is="item.icon" /></el-icon>
           <span>{{ item.label }}</span>
         </div>
-        <div class="menu-footer">
-          <router-link to="/" class="back-link">
-            <el-icon><Back /></el-icon> 返回文档浏览
-          </router-link>
-        </div>
       </aside>
 
       <!-- 管理内容 -->
@@ -30,7 +27,7 @@
           <div class="section-head">
             <div>
               <h2>文档管理</h2>
-              <p class="section-desc">导入、查看与删除 OpenAPI 3.0 接口文档</p>
+              <p class="section-desc">导入、预览与删除文档，支持 OpenAPI 3.0（JSON/YAML）与 Markdown</p>
             </div>
             <el-button type="primary" @click="importVisible = true">
               <el-icon><Upload /></el-icon> 导入文档
@@ -46,22 +43,35 @@
                 </div>
               </template>
             </el-table-column>
-            <el-table-column label="来源" width="120">
+            <el-table-column label="来源" width="110">
               <template #default="{ row }">
                 <el-tag size="small" effect="plain" :type="sourceType(row.sourceType)">{{ sourceLabel(row.sourceType) }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="接口数" width="90" prop="operationCount" align="center" />
-            <el-table-column label="格式" width="80" align="center">
-              <template #default="{ row }"><span class="mono">{{ row.rawFormat.toUpperCase() }}</span></template>
+            <el-table-column label="接口数" width="90" align="center">
+              <template #default="{ row }">
+                <span v-if="row.rawFormat === 'markdown'" class="muted">—</span>
+                <span v-else>{{ row.operationCount }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="格式" width="90" align="center">
+              <template #default="{ row }">
+                <el-tag v-if="row.rawFormat === 'markdown'" type="warning" size="small" effect="plain">MD</el-tag>
+                <span v-else class="mono">{{ row.rawFormat.toUpperCase() }}</span>
+              </template>
             </el-table-column>
             <el-table-column label="更新时间" width="170">
               <template #default="{ row }">{{ fmtTime(row.updatedAt) }}</template>
             </el-table-column>
             <el-table-column label="操作" width="230" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="viewDoc(row.id)">查看</el-button>
-                <el-dropdown @command="(cmd: string) => exportDoc(row.id, cmd)">
+                <el-button link type="primary" size="small" @click="openPreview(row)">预览</el-button>
+                <el-button
+                  v-if="row.rawFormat === 'markdown'"
+                  link type="primary" size="small"
+                  @click="exportDoc(row.id, 'markdown')"
+                >导出 MD</el-button>
+                <el-dropdown v-else @command="(cmd: string) => exportDoc(row.id, cmd)">
                   <el-button link type="primary" size="small">导出<el-icon><ArrowDown /></el-icon></el-button>
                   <template #dropdown>
                     <el-dropdown-menu>
@@ -192,6 +202,45 @@
       </main>
     </div>
 
+    <!-- 文档预览（管理端原地预览，不跳到浏览端） -->
+    <el-drawer v-model="previewVisible" :title="previewDoc?.title ?? '文档预览'" size="62%">
+      <div v-loading="previewLoading" class="preview-wrap">
+        <template v-if="previewDoc">
+          <MarkdownView
+            v-if="previewDoc.rawFormat === 'markdown'"
+            :content="previewDoc.rawContent"
+          />
+          <div v-else class="preview-meta">
+            <div class="preview-row">
+              <span class="preview-label">版本</span>
+              <span>{{ previewDoc.normalized.version || '未声明' }}</span>
+            </div>
+            <div class="preview-row">
+              <span class="preview-label">接口数</span>
+              <span>{{ previewDoc.normalized.operationCount }}</span>
+            </div>
+            <div class="preview-row">
+              <span class="preview-label">服务器</span>
+              <span class="preview-servers">
+                <code v-for="s in previewDoc.normalized.servers" :key="s.url">{{ s.url }}</code>
+                <span v-if="!previewDoc.normalized.servers.length" class="muted">未声明</span>
+              </span>
+            </div>
+            <div v-for="group in previewDoc.normalized.groups" :key="group.name" class="preview-group">
+              <div class="preview-group-title">
+                {{ group.name }} <span class="preview-group-count">{{ group.operations.length }}</span>
+              </div>
+              <div v-for="op in group.operations" :key="op.id" class="preview-op">
+                <span class="method-tag" :class="`method-${op.method}`">{{ op.method }}</span>
+                <code class="preview-op-path">{{ op.path }}</code>
+                <span class="preview-op-summary">{{ op.summary || '' }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+    </el-drawer>
+
     <!-- 导入弹窗 -->
     <ImportDialog v-model="importVisible" />
 
@@ -233,27 +282,34 @@
       </template>
     </el-drawer>
   </div>
+
+  <div v-else class="admin-loading">加载中…</div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, reactive, computed, onMounted, watch } from 'vue';
 import {
-  Files, Setting, Back, Upload, Plus, Delete, ArrowDown,
-  Document, Monitor, FolderOpened, Clock,
+  Files, Setting, Upload, Plus, Delete, ArrowDown,
+  Document, Monitor, Clock,
 } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import type { Environment, HistoryEntry } from '@openapi-view/shared';
+import type { DocumentDetail, DocumentFormat, DocumentSummary, Environment, HistoryEntry } from '@openapi-view/shared';
 import AppHeader from '../components/AppHeader.vue';
 import ImportDialog from '../components/ImportDialog.vue';
+import MarkdownView from '../components/MarkdownView.vue';
+import AuthGate from '../components/AuthGate.vue';
 import { useDocumentsStore } from '../stores/documents';
 import { useEnvironmentStore } from '../stores/environment';
+import { useAuthStore } from '../stores/auth';
+import { getDocument, exportDocumentUrl } from '../api/documents';
 import * as historyApi from '../api/proxy';
-import { exportDocumentUrl } from '../api/documents';
 
-const router = useRouter();
+const authStore = useAuthStore();
 const docsStore = useDocumentsStore();
 const envStore = useEnvironmentStore();
+
+/** 未登录管理员时整页显示登录框，其余内容不渲染，避免闪现空表 */
+const needLogin = computed(() => authStore.ready && authStore.role !== 'admin');
 
 const menu = [
   { key: 'documents', label: '文档管理', icon: Document },
@@ -264,14 +320,28 @@ const menu = [
 const activePane = ref('documents');
 const varSyntax = '{{变量名}}';
 
-onMounted(async () => {
+async function bootstrap() {
   await Promise.all([docsStore.loadList(), envStore.load()]);
   globalRows.value = envStore.globals.map((g) => ({ key: g.key, value: g.value, description: g.description }));
   await loadHistory();
+}
+
+onMounted(async () => {
+  await authStore.init();
+  if (!needLogin.value) await bootstrap();
+});
+
+// 登录成功后 needLogin 变 false：监听状态而非子组件事件（组件在 await 后已卸载）
+watch(needLogin, (need) => {
+  if (!need) void bootstrap();
 });
 
 // 文档
 const importVisible = ref(false);
+const previewVisible = ref(false);
+const previewLoading = ref(false);
+const previewDoc = ref<DocumentDetail | null>(null);
+
 function sourceLabel(t: string): string {
   return ({ url: 'URL', file: '文件', paste: '粘贴' } as Record<string, string>)[t] ?? t;
 }
@@ -279,13 +349,22 @@ function sourceType(t: string): 'success' | 'info' | 'warning' {
   return ({ url: 'success', file: 'info', paste: 'warning' } as Record<string, any>)[t] ?? 'info';
 }
 function fmtTime(ts: number): string { return new Date(ts).toLocaleString('zh-CN'); }
-async function viewDoc(id: string) {
-  await docsStore.openDocument(id);
-  router.push('/');
+
+async function openPreview(row: DocumentSummary) {
+  previewVisible.value = true;
+  previewDoc.value = null;
+  previewLoading.value = true;
+  try {
+    previewDoc.value = await getDocument(row.id);
+  } catch { /* 错误已由请求层提示 */ } finally {
+    previewLoading.value = false;
+  }
 }
+
 function exportDoc(id: string, format: string) {
-  window.open(exportDocumentUrl(id, format as 'json' | 'yaml'), '_blank');
+  window.open(exportDocumentUrl(id, format as DocumentFormat), '_blank');
 }
+
 async function removeDoc(row: { id: string; title: string }) {
   try {
     await ElMessageBox.confirm(`确认删除文档「${row.title}」？`, '提示', { type: 'warning' });
@@ -319,10 +398,10 @@ async function onSaveEnv() {
     envDialogVisible.value = false;
   } catch { /* 已提示 */ } finally { savingEnv.value = false; }
 }
-  function onUseEnv(row: Environment) {
-    envStore.select(row.id);
-    ElMessage.success(`已切换为使用「${row.name}」环境`);
-  }
+function onUseEnv(row: Environment) {
+  envStore.select(row.id);
+  ElMessage.success(`已切换为使用「${row.name}」环境`);
+}
 async function onDeleteEnv(row: Environment) {
   try {
     await ElMessageBox.confirm(`确认删除环境「${row.name}」？`, '提示', { type: 'warning' });
@@ -372,6 +451,14 @@ function onViewHistory(row: HistoryEntry) {
 
 <style scoped>
 .admin-page { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.admin-loading {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--af-text-tertiary);
+  font-size: 13px;
+}
 .admin-body { flex: 1; display: flex; min-height: 0; overflow: hidden; }
 .admin-menu {
   width: 208px;
@@ -403,8 +490,6 @@ function onViewHistory(row: HistoryEntry) {
 }
 .menu-item:hover { background: var(--af-bg-hover); color: var(--af-primary); }
 .menu-item.active { background: var(--af-primary-light); color: var(--af-primary); font-weight: 600; }
-.menu-footer { margin-top: auto; padding-top: 12px; border-top: 1px solid var(--af-border); }
-.back-link { display: flex; align-items: center; gap: 6px; font-size: 12.5px; padding: 8px 10px; }
 .admin-main { flex: 1; min-width: 0; overflow-y: auto; background: var(--af-bg); }
 .admin-section { max-width: 1120px; padding: 32px 40px 80px; }
 .section-head {
@@ -433,9 +518,30 @@ function onViewHistory(row: HistoryEntry) {
 .ev-eq { color: var(--af-text-tertiary); }
 .ev-value { flex: 1; }
 
+/* 预览抽屉 */
+.preview-wrap { min-height: 200px; }
+.preview-meta { font-size: 13px; color: var(--af-text-secondary); }
+.preview-row { display: flex; gap: 10px; padding: 6px 0; align-items: baseline; }
+.preview-label { width: 56px; flex-shrink: 0; color: var(--af-text-tertiary); font-size: 12.5px; }
+.preview-servers { display: flex; flex-wrap: wrap; gap: 6px; }
+.preview-servers code {
+  font-family: var(--af-mono);
+  font-size: 12px;
+  background: var(--af-bg-subtle);
+  border: 1px solid var(--af-border-light);
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+.preview-group { margin-top: 18px; }
+.preview-group-title { font-weight: 600; font-size: 13.5px; margin-bottom: 8px; }
+.preview-group-count { color: var(--af-text-tertiary); font-weight: 400; font-size: 12px; }
+.preview-op { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px dashed var(--af-border-light); }
+.preview-op-path { font-family: var(--af-mono); font-size: 12.5px; color: var(--af-text); }
+.preview-op-summary { color: var(--af-text-tertiary); font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 @media (max-width: 768px) {
   .admin-menu { width: 64px; padding: 14px 6px; }
-  .menu-title, .menu-item span, .back-link { display: none; }
+  .menu-title, .menu-item span { display: none; }
   .menu-item { justify-content: center; }
   .admin-section { padding: 18px 12px 50px; }
 }

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { validateBody } from '../middleware/validate.js';
+import { requireAdmin, requireView } from '../middleware/auth.js';
 import { listGlobals, replaceGlobals } from '../db/repositories/globals.js';
 
 export const globalsRouter = Router();
@@ -15,11 +16,11 @@ const replaceSchema = z.object({
   ),
 });
 
-globalsRouter.get('/', (_req, res) => {
+globalsRouter.get('/', requireView, (_req, res) => {
   res.json(listGlobals());
 });
 
-globalsRouter.put('/', validateBody(replaceSchema), (req, res) => {
+globalsRouter.put('/', requireAdmin, validateBody(replaceSchema), (req, res) => {
   replaceGlobals(req.body.variables);
   res.json(listGlobals());
 });

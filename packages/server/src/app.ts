@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { config } from './config.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { authRouter } from './routes/auth.js';
 import { documentsRouter } from './routes/documents.js';
 import { environmentsRouter } from './routes/environments.js';
 import { globalsRouter } from './routes/globals.js';
@@ -22,6 +23,8 @@ export function createApp() {
     res.json({ status: 'ok' });
   });
 
+  // 鉴权路由自身不设门槛（登录、状态查询）
+  app.use('/api/auth', authRouter);
   app.use('/api/documents', documentsRouter);
   app.use('/api/environments', environmentsRouter);
   app.use('/api/globals', globalsRouter);

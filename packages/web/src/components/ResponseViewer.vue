@@ -5,39 +5,41 @@
     </div>
 
     <template v-else-if="response">
-      <div class="resp-summary">
-        <el-tag :type="statusTagType" effect="dark">{{ response.status }} {{ response.statusText }}</el-tag>
-        <span class="resp-meta"><el-icon><Timer /></el-icon> {{ response.durationMs }} ms</span>
-        <span class="resp-meta"><el-icon><Coin /></el-icon> {{ formatSize(response.size) }}</span>
-        <el-tag v-if="response.truncated" type="warning" size="small">响应已截断</el-tag>
-        <el-button link type="primary" size="small" @click="downloadResponse">下载响应</el-button>
+      <div class="resp-head">
+        <div class="resp-summary">
+          <el-tag :type="statusTagType" round>{{ response.status }} {{ response.statusText }}</el-tag>
+          <span class="resp-meta"><el-icon><Timer /></el-icon> {{ response.durationMs }} ms</span>
+          <span class="resp-meta"><el-icon><Coin /></el-icon> {{ formatSize(response.size) }}</span>
+          <el-tag v-if="response.truncated" type="warning" size="small" round>响应已截断</el-tag>
+          <el-button size="small" @click="downloadResponse">下载响应</el-button>
+        </div>
+        <el-tabs v-model="viewTab" class="resp-tabs">
+          <el-tab-pane label="Pretty" name="pretty">
+            <template v-if="isJson">
+              <!-- 大响应默认不渲染格式化视图（VueJsonPretty 会产生数千 DOM 节点导致卡顿），用户点击后再渲染 -->
+              <div v-if="heavy && !prettyReady" class="heavy-placeholder">
+                <el-icon><WarningFilled /></el-icon>
+                <span>响应体较大（{{ formatSize(response.size) }}），格式化渲染可能卡顿，默认展示原文视图</span>
+                <el-button type="primary" size="small" @click="prettyReady = true">仍要格式化</el-button>
+              </div>
+              <div v-else class="json-pretty-wrap">
+                <VueJsonPretty :data="parsedBody" :deep="heavy ? 3 : 5" :show-length="true" />
+              </div>
+            </template>
+            <pre v-else class="code-block resp-body">{{ response.body || '(空响应体)' }}</pre>
+          </el-tab-pane>
+          <el-tab-pane label="Raw" name="raw">
+            <pre class="code-block resp-body">{{ response.body || '(空响应体)' }}</pre>
+          </el-tab-pane>
+          <el-tab-pane label="Headers" name="headers">
+            <div class="header-list">
+              <div v-for="(value, key) in response.headers" :key="key" class="header-row">
+                <span class="header-key">{{ key }}:</span> <span class="header-value">{{ value }}</span>
+              </div>
+            </div>
+          </el-tab-pane>
+        </el-tabs>
       </div>
-      <el-tabs v-model="viewTab" class="resp-tabs">
-        <el-tab-pane label="Pretty" name="pretty">
-          <template v-if="isJson">
-            <!-- 大响应默认不渲染格式化视图（VueJsonPretty 会产生数千 DOM 节点导致卡顿），用户点击后再渲染 -->
-            <div v-if="heavy && !prettyReady" class="heavy-placeholder">
-              <el-icon><WarningFilled /></el-icon>
-              <span>响应体较大（{{ formatSize(response.size) }}），格式化渲染可能卡顿，默认展示原文视图</span>
-              <el-button type="primary" size="small" @click="prettyReady = true">仍要格式化</el-button>
-            </div>
-            <div v-else class="json-pretty-wrap">
-              <VueJsonPretty :data="parsedBody" :deep="heavy ? 3 : 5" :show-length="true" />
-            </div>
-          </template>
-          <pre v-else class="code-block resp-body">{{ response.body || '(空响应体)' }}</pre>
-        </el-tab-pane>
-        <el-tab-pane label="Raw" name="raw">
-          <pre class="code-block resp-body">{{ response.body || '(空响应体)' }}</pre>
-        </el-tab-pane>
-        <el-tab-pane label="Headers" name="headers">
-          <div class="header-list">
-            <div v-for="(value, key) in response.headers" :key="key" class="header-row">
-              <span class="header-key">{{ key }}:</span> <span class="header-value">{{ value }}</span>
-            </div>
-          </div>
-        </el-tab-pane>
-      </el-tabs>
     </template>
 
     <div v-else-if="error" class="resp-error">
@@ -121,12 +123,18 @@ function downloadResponse() {
   align-items: center;
   justify-content: center;
 }
+.resp-head {
+  position: relative;
+}
+/* 状态信息组绝对定位到 tabs 行右侧，锚定最近的 resp-head 容器，与 header 行垂直居中 */
 .resp-summary {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: var(--el-tabs-header-height, 40px);
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-bottom: 10px;
-  flex-wrap: wrap;
+  gap: 12px;
 }
 .resp-meta {
   display: flex;

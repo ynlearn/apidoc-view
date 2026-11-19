@@ -1,4 +1,4 @@
-import type { DocumentDetail, DocumentSummary } from '@openapi-view/shared';
+import type { DocumentDetail, DocumentFormat, DocumentSummary } from '@openapi-view/shared';
 import { http } from './http';
 
 export function listDocuments() {
@@ -11,7 +11,7 @@ export function getDocument(id: string) {
 
 export function createDocument(data: {
   content: string;
-  format: 'json' | 'yaml';
+  format: DocumentFormat;
   sourceType: 'paste' | 'file' | 'url';
   title?: string;
   sourceValue?: string;
@@ -27,6 +27,6 @@ export function deleteDocument(id: string) {
   return http.delete(`/documents/${id}`);
 }
 
-export function exportDocumentUrl(id: string, format: 'json' | 'yaml') {
+export function exportDocumentUrl(id: string, format: DocumentFormat) {
   return `/api/documents/${id}/export?format=${format}`;
 }
