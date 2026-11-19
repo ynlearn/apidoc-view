@@ -24,4 +24,6 @@ export interface CreateDocumentDto {
   format: DocumentFormat;
   sourceType: 'paste' | 'file' | 'url';
   sourceValue?: string;
+  /** 指定后本次导入的所有接口统一归入该分组；不传则沿用 OpenAPI tags 自动分组 */
+  targetGroup?: string;
 }

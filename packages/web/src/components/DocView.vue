@@ -13,7 +13,7 @@
       <span class="method-tag" :class="`method-${operation.method}`">{{ operation.method }}</span>
       <code class="doc-path">{{ operation.path }}</code>
       <el-tag v-if="operation.deprecated" type="danger" size="small" effect="light">已废弃</el-tag>
-      <el-button class="doc-debug-btn" type="primary" size="small" @click="$emit('debug')">
+      <el-button v-if="!hideDebug" class="doc-debug-btn" type="primary" size="small" @click="$emit('debug')">
         <el-icon><Promotion /></el-icon> 调试此接口
       </el-button>
     </div>
@@ -107,7 +107,7 @@ import type { OperationView, ParameterView, SchemaView } from '@openapi-view/sha
 import SchemaViewer from './SchemaViewer.vue';
 import { generateExample } from '../utils/example';
 
-const props = defineProps<{ operation: OperationView | null; docTitle?: string; groupName?: string }>();
+const props = defineProps<{ operation: OperationView | null; docTitle?: string; groupName?: string; hideDebug?: boolean }>();
 defineEmits<{ debug: [] }>();
 
 const PARAM_LABELS: Record<string, string> = {

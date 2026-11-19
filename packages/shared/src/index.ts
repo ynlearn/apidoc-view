@@ -4,3 +4,4 @@ export * from './history.js';
 export * from './proxy.js';
 export * from './document.js';
 export * from './auth.js';
+export * from './share.js';

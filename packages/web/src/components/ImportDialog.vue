@@ -57,6 +57,27 @@
       </el-tab-pane>
     </el-tabs>
 
+    <div v-if="showGroupPicker" class="import-group">
+      <el-form label-position="top">
+        <el-form-item label="归属分组（可选）">
+          <el-select
+            v-model="targetGroup"
+            filterable
+            allow-create
+            clearable
+            default-first-option
+            placeholder="留空则按 OpenAPI tags 自动分组"
+            class="import-group-select"
+          >
+            <el-option v-for="name in groupNames" :key="name" :label="name" :value="name" />
+          </el-select>
+        </el-form-item>
+        <p class="import-tip">
+          指定后本次导入的所有接口都会挂到该分组；分组是本系统的展示归类，相当于 OpenAPI 的 tags[0]。
+        </p>
+      </el-form>
+    </div>
+
     <template #footer>
       <el-button @click="visible = false">取消</el-button>
       <el-button type="primary" :loading="loading" @click="onImport">导入</el-button>
@@ -65,7 +86,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, defineAsyncComponent } from 'vue';
+import { ref, computed, watch, defineAsyncComponent } from 'vue';
 import { UploadFilled } from '@element-plus/icons-vue';
 import { ElMessage } from 'element-plus';
 import type { UploadFile } from 'element-plus';
@@ -73,6 +94,7 @@ import type { DocumentFormat } from '@openapi-view/shared';
 // CodeMirror 体积大：与其他使用处保持一致的动态加载策略
 const CodeEditor = defineAsyncComponent(() => import('./CodeEditor.vue'));
 import { useDocumentsStore } from '../stores/documents';
+import { listGroupNames } from '../api/documents';
 
 const props = defineProps<{ modelValue: boolean }>();
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>();
@@ -85,10 +107,29 @@ const pasteContent = ref('');
 const fileContent = ref('');
 const fileFormat = ref<DocumentFormat>('json');
 const loading = ref(false);
+const groupNames = ref<string[]>([]);
+const targetGroup = ref('');
 
 const visible = computed({
   get: () => props.modelValue,
   set: (v) => emit('update:modelValue', v),
+});
+
+/** Markdown 没有接口概念，不显示归组选项 */
+const showGroupPicker = computed(() => {
+  if (activeTab.value === 'paste') return pasteFormat.value !== 'markdown';
+  if (activeTab.value === 'file') return fileFormat.value !== 'markdown';
+  return true;
+});
+
+watch(visible, async (open) => {
+  if (!open) return;
+  targetGroup.value = '';
+  try {
+    groupNames.value = await listGroupNames();
+  } catch {
+    groupNames.value = [];
+  }
 });
 
 /** 按扩展名判断格式；认不出的按 YAML 交给服务端报错，比静默猜错强 */
@@ -112,13 +153,14 @@ function onFileChange(file: UploadFile) {
 
 async function onImport() {
   loading.value = true;
+  const group = targetGroup.value.trim() || undefined;
   try {
     if (activeTab.value === 'url') {
       if (!url.value.trim()) {
         ElMessage.warning('请输入文档 URL');
         return;
       }
-      await docsStore.importFromUrl(url.value.trim());
+      await docsStore.importFromUrl(url.value.trim(), group);
     } else if (activeTab.value === 'paste') {
       if (!pasteContent.value.trim()) {
         ElMessage.warning('请粘贴文档内容');
@@ -128,6 +170,7 @@ async function onImport() {
         content: pasteContent.value,
         format: pasteFormat.value,
         sourceType: 'paste',
+        targetGroup: pasteFormat.value === 'markdown' ? undefined : group,
       });
     } else {
       if (!fileContent.value.trim()) {
@@ -138,6 +181,7 @@ async function onImport() {
         content: fileContent.value,
         format: fileFormat.value,
         sourceType: 'file',
+        targetGroup: fileFormat.value === 'markdown' ? undefined : group,
       });
     }
     ElMessage.success('导入成功');
@@ -146,6 +190,7 @@ async function onImport() {
     url.value = '';
     pasteContent.value = '';
     fileContent.value = '';
+    targetGroup.value = '';
   } catch {
     // 错误已由 axios 拦截器提示
   } finally {
@@ -160,4 +205,10 @@ async function onImport() {
   font-size: 12px;
   color: var(--af-text-tertiary);
 }
+.import-group {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--af-border);
+}
+.import-group-select { width: 100%; }
 </style>

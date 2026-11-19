@@ -78,6 +78,29 @@ export interface OperationGroupView {
   operations: OperationView[];
 }
 
+/**
+ * 手工维护接口时提交的数据。
+ * 服务端据此重建归一化结果与 OpenAPI 原文（接口改动必须回写原文本，
+ * 否则 GET /documents/:id 的实时重新归一化会把改动覆盖掉）。
+ */
+export interface OperationDraft {
+  /** 大写方法名，GET/POST/... */
+  method: string;
+  path: string;
+  summary?: string;
+  description?: string;
+  /**
+   * 归属分组名，空则落到「默认分组」。
+   * 本系统里分组等价于 OpenAPI 的 tags[0]，所以保存时 tags 会被统一改写为 [group]。
+   */
+  group?: string;
+  operationId?: string;
+  deprecated?: boolean;
+  parameters: ParameterView[];
+  requestBody?: RequestBodyView;
+  responses: ResponseView[];
+}
+
 export interface NormalizedDocument {
   title: string;
   version?: string;

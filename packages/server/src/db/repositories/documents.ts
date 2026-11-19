@@ -71,3 +71,38 @@ export function insertDocument(input: InsertDocumentInput): string {
 export function deleteDocument(id: string): boolean {
   return db.prepare('DELETE FROM documents WHERE id = ?').run(id).changes > 0;
 }
+
+/**
+ * 用新的原文本 + 归一化结果覆盖文档。
+ * 手工改接口必须走这里：raw_content 与 normalized_json 必须同步更新，
+ * 否则 GET /documents/:id 的实时重新归一化会把手改结果覆盖掉。
+ */
+export function replaceDocumentContent(
+  id: string,
+  input: {
+    rawContent: string;
+    rawFormat: string;
+    normalized: NormalizedDocument;
+    title?: string;
+    sourceType?: string;
+  },
+): boolean {
+  const result = db
+    .prepare(
+      `UPDATE documents
+       SET raw_content = ?, raw_format = ?, normalized_json = ?, operation_count = ?,
+           title = COALESCE(?, title), source_type = COALESCE(?, source_type), updated_at = ?
+       WHERE id = ?`,
+    )
+    .run(
+      input.rawContent,
+      input.rawFormat,
+      JSON.stringify(input.normalized),
+      input.normalized.operationCount,
+      input.title ?? null,
+      input.sourceType ?? null,
+      Date.now(),
+      id,
+    );
+  return result.changes > 0;
+}

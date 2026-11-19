@@ -10,6 +10,7 @@ import { documentsRouter } from './routes/documents.js';
 import { environmentsRouter } from './routes/environments.js';
 import { globalsRouter } from './routes/globals.js';
 import { historyRouter, proxyRouter } from './routes/proxy.js';
+import { sharesRouter } from './routes/shares.js';
 
 export function createApp() {
   const app = express();
@@ -30,6 +31,8 @@ export function createApp() {
   app.use('/api/globals', globalsRouter);
   app.use('/api/history', historyRouter);
   app.use('/api/proxy', proxyRouter);
+  // 分享路由内部自行分层：管理端 CRUD 需管理员，/ :token/* 为公开访问
+  app.use('/api/shares', sharesRouter);
 
   // 生产环境：托管前端静态资源（同源访问）
   if (fs.existsSync(config.webDistPath)) {

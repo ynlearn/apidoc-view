@@ -5,6 +5,7 @@ import type {
   NormalizedDocument,
   OperationView,
   ParameterView,
+  RequestBodyView,
   ResponseView,
   SchemaView,
 } from '@openapi-view/shared';
@@ -308,4 +309,120 @@ export function generateExample(schema: SchemaView | undefined): unknown {
     default:
       return '';
   }
+}
+
+// ---------- 反向生成：归一化模型 → OpenAPI 3.0 原文 ----------
+// 手工维护接口后必须回写 raw_content，否则 GET /documents/:id 的实时重新归一化会覆盖改动。
+// 代价：原始 YAML 的注释与排版会被标准化 JSON 取代，这一点在管理端界面上明确提示。
+
+function viewToSchema(view: SchemaView | undefined): AnyObj | undefined {
+  if (!view) return undefined;
+  // circular 是解析时命中循环引用打的标记，无法还原成 $ref，退化为空 schema
+  if (view.circular) return {};
+
+  const out: AnyObj = {};
+  if (view.type) out.type = view.type;
+  if (view.format) out.format = view.format;
+  if (view.description) out.description = view.description;
+  if (view.enum) out.enum = view.enum;
+  if (view.default !== undefined) out.default = view.default;
+  if (view.example !== undefined) out.example = view.example;
+  if (view.nullable) out.nullable = true;
+  if (view.minimum !== undefined) out.minimum = view.minimum;
+  if (view.maximum !== undefined) out.maximum = view.maximum;
+  if (view.minLength !== undefined) out.minLength = view.minLength;
+  if (view.maxLength !== undefined) out.maxLength = view.maxLength;
+  if (view.pattern) out.pattern = view.pattern;
+  if (view.required?.length) out.required = view.required;
+  if (view.items) out.items = viewToSchema(view.items);
+  if (view.properties) {
+    out.properties = Object.fromEntries(
+      Object.entries(view.properties).map(([key, child]) => [key, viewToSchema(child)]),
+    );
+  }
+  if (view.allOf?.length) out.allOf = view.allOf.map(viewToSchema);
+  if (view.oneOf?.length) out.oneOf = view.oneOf.map(viewToSchema);
+  if (view.anyOf?.length) out.anyOf = view.anyOf.map(viewToSchema);
+  return out;
+}
+
+function viewToMediaType(media: MediaTypeView): AnyObj {
+  const out: AnyObj = {};
+  const schema = viewToSchema(media.schema);
+  if (schema) out.schema = schema;
+  if (media.example !== undefined) out.example = media.example;
+  else if (media.examples) out.examples = media.examples;
+  return out;
+}
+
+function viewToParameter(param: ParameterView): AnyObj {
+  const out: AnyObj = { name: param.name, in: param.in };
+  if (param.required) out.required = true;
+  if (param.description) out.description = param.description;
+  if (param.deprecated) out.deprecated = true;
+  const schema = viewToSchema(param.schema);
+  if (schema) out.schema = schema;
+  if (param.example !== undefined) out.example = param.example;
+  return out;
+}
+
+function viewToRequestBody(body: RequestBodyView): AnyObj {
+  const out: AnyObj = {};
+  if (body.required) out.required = true;
+  if (body.description) out.description = body.description;
+  out.content = Object.fromEntries(
+    body.contentTypes.map((media) => [media.contentType, viewToMediaType(media)]),
+  );
+  return out;
+}
+
+function viewToResponse(response: ResponseView): AnyObj {
+  const out: AnyObj = { description: response.description ?? '' };
+  if (response.contentTypes?.length) {
+    out.content = Object.fromEntries(
+      response.contentTypes.map((media) => [media.contentType, viewToMediaType(media)]),
+    );
+  }
+  return out;
+}
+
+/** 把归一化模型还原成一份可再次导入、可导出的 OpenAPI 3.0 文档 */
+export function normalizedToOpenApi(normalized: NormalizedDocument): AnyObj {
+  const paths: AnyObj = {};
+
+  for (const group of normalized.groups) {
+    for (const operation of group.operations) {
+      const method = operation.method.toLowerCase();
+      const pathItem = (paths[operation.path] ??= {}) as AnyObj;
+      // 分组语义等价于 tags[0]：这里强制对齐，保证再次归一化时仍落在同一分组
+      const tags = operation.tags?.length ? operation.tags : [group.name];
+
+      pathItem[method] = {
+        summary: operation.summary,
+        description: operation.description,
+        tags,
+        operationId: operation.operationId,
+        deprecated: operation.deprecated || undefined,
+        parameters: operation.parameters.length ? operation.parameters.map(viewToParameter) : undefined,
+        requestBody: operation.requestBody ? viewToRequestBody(operation.requestBody) : undefined,
+        responses: operation.responses.length
+          ? Object.fromEntries(operation.responses.map((r) => [r.status, viewToResponse(r)]))
+          : { '200': { description: 'OK' } },
+        security: operation.security,
+      };
+    }
+  }
+
+  const info: AnyObj = {
+    title: normalized.title || '未命名文档',
+    version: normalized.version ?? '1.0.0',
+  };
+  if (normalized.description) info.description = normalized.description;
+
+  return {
+    openapi: '3.0.3',
+    info,
+    ...(normalized.servers.length ? { servers: normalized.servers } : {}),
+    paths,
+  };
 }

@@ -49,5 +49,22 @@ export function migrate(): void {
       created_at INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_history_created_at ON history(created_at DESC);
+
+    -- 分享链接：target_type=operation 时 operation_id 必填（method:PATH 格式）
+    -- password_hash 为空表示无需口令；expires_at 为空表示永久有效
+    CREATE TABLE IF NOT EXISTS shares (
+      id TEXT PRIMARY KEY,
+      token TEXT NOT NULL UNIQUE,
+      target_type TEXT NOT NULL,
+      document_id TEXT NOT NULL,
+      operation_id TEXT,
+      title TEXT NOT NULL,
+      password_hash TEXT,
+      expires_at INTEGER,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_shares_document ON shares(document_id);
   `);
 }

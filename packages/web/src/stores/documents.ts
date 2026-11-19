@@ -42,8 +42,8 @@ export const useDocumentsStore = defineStore('documents', () => {
     return id;
   }
 
-  async function importFromUrl(url: string) {
-    const { id } = await api.importDocumentFromUrl(url);
+  async function importFromUrl(url: string, targetGroup?: string) {
+    const { id } = await api.importDocumentFromUrl(url, targetGroup);
     await loadList();
     await openDocument(id);
     return id;

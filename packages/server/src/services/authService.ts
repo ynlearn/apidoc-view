@@ -106,6 +106,31 @@ export function verifyToken(token: string | null | undefined): { role: AuthRole;
   }
 }
 
+/**
+ * 通用签名载荷，分享访问凭据复用同一套 HMAC 密钥。
+ * 只为签发/校验自己发的 token 服务，不引 JWT 库。
+ */
+export function signPayload(payload: Record<string, unknown>): string {
+  const encoded = Buffer.from(JSON.stringify(payload)).toString('base64url');
+  return `${encoded}.${sign(encoded)}`;
+}
+
+export function verifySignedPayload<T extends object>(token: string | null | undefined): (T & { e: number }) | null {
+  if (!token) return null;
+  const dot = token.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const encoded = token.slice(0, dot);
+  const signature = token.slice(dot + 1);
+  if (!safeEqual(signature, sign(encoded))) return null;
+  try {
+    const data = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8')) as T & { e?: number };
+    if (typeof data.e !== 'number' || data.e <= Date.now()) return null;
+    return data as T & { e: number };
+  } catch {
+    return null;
+  }
+}
+
 export function verifyAdminCredentials(username: string, password: string): boolean {
   // 两个比较都执行，避免通过短路判断区分"账号错"与"密码错"
   const userOk = safeEqual(username, config.adminUsername);

@@ -63,9 +63,15 @@
             <el-table-column label="更新时间" width="170">
               <template #default="{ row }">{{ fmtTime(row.updatedAt) }}</template>
             </el-table-column>
-            <el-table-column label="操作" width="230" fixed="right">
+            <el-table-column label="操作" width="340" fixed="right">
               <template #default="{ row }">
                 <el-button link type="primary" size="small" @click="openPreview(row)">预览</el-button>
+                <el-button
+                  v-if="row.rawFormat !== 'markdown'"
+                  link type="primary" size="small"
+                  @click="openOperations(row)"
+                >接口</el-button>
+                <el-button link type="primary" size="small" @click="openShare(row)">分享</el-button>
                 <el-button
                   v-if="row.rawFormat === 'markdown'"
                   link type="primary" size="small"
@@ -281,6 +287,18 @@
         <pre class="code-block">{{ selectedHistory.responsePreview || '(无)' }}</pre>
       </template>
     </el-drawer>
+
+    <!-- 单接口管理与分享 -->
+    <OperationManagerDialog
+      v-model:visible="operationsVisible"
+      :document-id="operationsDoc?.id ?? null"
+      :doc-title="operationsDoc?.title"
+      @changed="onOperationsChanged"
+    />
+    <ShareDialog
+      v-model:visible="shareVisible"
+      :document="shareDoc ? { id: shareDoc.id, title: shareDoc.title } : null"
+    />
   </div>
 
   <div v-else class="admin-loading">加载中…</div>
@@ -298,6 +316,8 @@ import AppHeader from '../components/AppHeader.vue';
 import ImportDialog from '../components/ImportDialog.vue';
 import MarkdownView from '../components/MarkdownView.vue';
 import AuthGate from '../components/AuthGate.vue';
+import OperationManagerDialog from '../components/OperationManagerDialog.vue';
+import ShareDialog from '../components/ShareDialog.vue';
 import { useDocumentsStore } from '../stores/documents';
 import { useEnvironmentStore } from '../stores/environment';
 import { useAuthStore } from '../stores/auth';
@@ -363,6 +383,29 @@ async function openPreview(row: DocumentSummary) {
 
 function exportDoc(id: string, format: string) {
   window.open(exportDocumentUrl(id, format as DocumentFormat), '_blank');
+}
+
+// 单接口管理
+const operationsVisible = ref(false);
+const operationsDoc = ref<DocumentSummary | null>(null);
+
+function openOperations(row: DocumentSummary) {
+  operationsDoc.value = row;
+  operationsVisible.value = true;
+}
+
+/** 接口增删改会改变接口数，列表需要刷新 */
+async function onOperationsChanged() {
+  await docsStore.loadList();
+}
+
+// 分享
+const shareVisible = ref(false);
+const shareDoc = ref<DocumentSummary | null>(null);
+
+function openShare(row: DocumentSummary) {
+  shareDoc.value = row;
+  shareVisible.value = true;
 }
 
 async function removeDoc(row: { id: string; title: string }) {
