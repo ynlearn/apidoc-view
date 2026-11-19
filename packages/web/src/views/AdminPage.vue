@@ -69,7 +69,7 @@
                 <el-button
                   v-if="row.rawFormat !== 'markdown'"
                   link type="primary" size="small"
-                  @click="openOperations(row)"
+                  @click="enterOperations(row)"
                 >接口</el-button>
                 <el-button link type="primary" size="small" @click="openShare(row)">分享</el-button>
                 <el-button
@@ -288,13 +288,7 @@
       </template>
     </el-drawer>
 
-    <!-- 单接口管理与分享 -->
-    <OperationManagerDialog
-      v-model:visible="operationsVisible"
-      :document-id="operationsDoc?.id ?? null"
-      :doc-title="operationsDoc?.title"
-      @changed="onOperationsChanged"
-    />
+    <!-- 分享 -->
     <ShareDialog
       v-model:visible="shareVisible"
       :document="shareDoc ? { id: shareDoc.id, title: shareDoc.title } : null"
@@ -306,6 +300,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   Files, Setting, Upload, Plus, Delete, ArrowDown,
   Document, Monitor, Clock,
@@ -316,7 +311,6 @@ import AppHeader from '../components/AppHeader.vue';
 import ImportDialog from '../components/ImportDialog.vue';
 import MarkdownView from '../components/MarkdownView.vue';
 import AuthGate from '../components/AuthGate.vue';
-import OperationManagerDialog from '../components/OperationManagerDialog.vue';
 import ShareDialog from '../components/ShareDialog.vue';
 import { useDocumentsStore } from '../stores/documents';
 import { useEnvironmentStore } from '../stores/environment';
@@ -327,6 +321,7 @@ import * as historyApi from '../api/proxy';
 const authStore = useAuthStore();
 const docsStore = useDocumentsStore();
 const envStore = useEnvironmentStore();
+const router = useRouter();
 
 /** 未登录管理员时整页显示登录框，其余内容不渲染，避免闪现空表 */
 const needLogin = computed(() => authStore.ready && authStore.role !== 'admin');
@@ -385,18 +380,9 @@ function exportDoc(id: string, format: string) {
   window.open(exportDocumentUrl(id, format as DocumentFormat), '_blank');
 }
 
-// 单接口管理
-const operationsVisible = ref(false);
-const operationsDoc = ref<DocumentSummary | null>(null);
-
-function openOperations(row: DocumentSummary) {
-  operationsDoc.value = row;
-  operationsVisible.value = true;
-}
-
-/** 接口增删改会改变接口数，列表需要刷新 */
-async function onOperationsChanged() {
-  await docsStore.loadList();
+// 单接口管理：独立页面承载重表单，弹窗装不下
+function enterOperations(row: DocumentSummary) {
+  router.push({ name: 'operation-editor', params: { docId: row.id } });
 }
 
 // 分享
