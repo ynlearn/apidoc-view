@@ -1,0 +1,31 @@
+# =====================================================================
+# apidoc-view 生产部署：单容器 = 前端 + API + SQLite（单进程托管，端口 3000）
+#
+# 数据持久化：命名卷 apidoc-data 挂 /app/data——SQLite 文件（app.db）与
+# 运行时密钥（.admin-password / .auth-secret）都在里面，重建容器不丢登录配置。
+#
+# 密钥注入：compose 自动读取同目录 .env 文件做 ${VAR} 替换（服务进程不加载容器外 .env）。
+# 变量未设置时注入空串 = 服务侧视为未配置（随机密码/开放浏览端，行为同默认值）。
+# 故意不整文件透传（env_file）：避免误带 DB_TYPE=mysql 之类配置让服务起不来。
+# =====================================================================
+services:
+  apidoc-view:
+    build: .
+    image: apidoc-view:latest
+    container_name: apidoc-view
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # 管理端密码；不设则首次启动生成随机密码（日志 + 卷内 data/.admin-password）
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # 浏览端访问口令；不设 = 浏览端开放
+      VIEW_PASSWORD: ${VIEW_PASSWORD:-}
+      # token 签名密钥；不设则生成并落卷（单实例够用，多实例必须统一注入）
+      AUTH_SECRET: ${AUTH_SECRET:-}
+    volumes:
+      - apidoc-data:/app/data
+    # 健康检查沿用 Dockerfile 定义（wget /api/health，返回含 db 方言）
+
+volumes:
+  apidoc-data:
