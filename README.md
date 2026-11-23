@@ -51,6 +51,8 @@ docker compose up -d --build
 
 单容器 = 前端静态资源 + API + SQLite，监听 3000 端口；`/api/health` 自带健康检查。数据（SQLite 文件 + 运行时密钥）持久化在命名卷 `apidoc-data`，重建容器不丢。
 
+资源限制：容器上限 **2 核 / 1G 内存**（`deploy.resources.limits`），并给 Node 设了 `--max-old-space-size=768` 给原生内存留余量——内存超限会被内核直接 OOM 杀掉，调大机器规格时记得同步改这两处。
+
 管理密码等敏感配置通过项目根 `.env` 文件注入（compose 自动读取，详见 `.env.example`）：
 
 ```bash

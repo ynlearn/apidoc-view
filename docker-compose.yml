@@ -7,6 +7,13 @@
 # 密钥注入：compose 自动读取同目录 .env 文件做 ${VAR} 替换（服务进程不加载容器外 .env）。
 # 变量未设置时注入空串 = 服务侧视为未配置（随机密码/开放浏览端，行为同默认值）。
 # 故意不整文件透传（env_file）：避免误带 DB_TYPE=mysql 之类配置让服务起不来。
+#
+# 资源限制：2 核 / 1G 内存（deploy.resources.limits，Compose V2 的非 swarm 模式同样生效）。
+# 实测（2026-11-23，容器内 sqlite + 26 接口文档，4 并发打满 20s）：
+#   启动峰值 46MiB | 空闲稳态 40MiB | 压测峰值 79MiB | 压测中 CPU 118~128%（会跑过单核）
+# 于是：硬上限 1G ≈ 压测峰值的 12 倍余量；预留只兜住空闲态 40MiB 即可，256M 纯属虚高。
+# 内存是硬上限，超限由内核 OOM killer 直接杀进程——所以同时给 Node 留出余量，
+# 见下面 NODE_OPTIONS 的堆上限设置。
 # =====================================================================
 services:
   apidoc-view:
@@ -23,9 +30,24 @@ services:
       VIEW_PASSWORD: ${VIEW_PASSWORD:-}
       # token 签名密钥；不设则生成并落卷（单实例够用，多实例必须统一注入）
       AUTH_SECRET: ${AUTH_SECRET:-}
+      # 堆上限压在容器内存线以下：给 V8 之外的原生内存（undici 缓冲、SQLite 页缓存、
+      # zlib）留出余量，避免进程 RSS 顶到 1G cgroup 上限被 OOM killer 干掉。
+      NODE_OPTIONS: "--max-old-space-size=768"
     volumes:
       - apidoc-data:/app/data
     # 健康检查沿用 Dockerfile 定义（wget /api/health，返回含 db 方言）
+    deploy:
+      resources:
+        limits:
+          # 硬上限：超限内核直接 OOM kill。
+          # CPU 取 2 是因为实测并发下会跑到 ~120%（单核会被 throttle）。
+          cpus: "2"
+          memory: 1G
+        reservations:
+          # 软预留（保证下限，不是预分配）：只保证 idle 40MiB 有位置，
+          # 突发时照样可以涨到 1G 硬上限，所以压 64M 不会卡住服务。
+          cpus: "0.25"
+          memory: 64M
 
 volumes:
   apidoc-data:
